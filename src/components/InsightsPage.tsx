@@ -1,0 +1,1 @@
+// REMOVED: Replaced by SimpleInsightsEnhanced.tsx

@@ -1,0 +1,1 @@
+// This file has been removed - theme handling is done directly in App.tsx
