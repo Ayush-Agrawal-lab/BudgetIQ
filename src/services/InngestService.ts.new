@@ -1,0 +1,481 @@
+import { Inngest } from 'inngest';import { Inngest } from 'inngest';import { Inngest } from 'inngest';
+
+import { createClient } from '../lib/supabase/client';
+
+import { createClient } from '../lib/supabase/client';import { createClient } from '../lib/supabase/client';
+
+// Initialize Inngest
+
+export const inngest = new Inngest({ import { Database } from '../lib/supabase/types';import type { Database } from '../lib/supabase/database.types';
+
+  id: 'budgetiq',
+
+  name: 'BudgetIQ Automation',
+
+  eventKey: process.env.INNGEST_EVENT_KEY,
+
+});type Transaction = Database['public']['Tables']['transactions']['Row'];// Database types
+
+
+
+// Event typestype TransactionInsert = Database['public']['Tables']['transactions']['Insert'];interface Transaction {
+
+type RecurringTransactionEvent = {
+
+  name: 'recurring.transaction.process';type TransactionUpdate = Database['public']['Tables']['transactions']['Update'];  id: string;
+
+  data: {
+
+    userId: string;  user_id: string;
+
+    recurringTransactionId: string;
+
+  };type RecurringTransaction = Database['public']['Tables']['recurring_transactions']['Row'];  account_id: string;
+
+};
+
+type RecurringTransactionInsert = Database['public']['Tables']['recurring_transactions']['Insert'];  category_id: string;
+
+type DailyBalanceUpdateEvent = {
+
+  name: 'account.balance.daily-update';type RecurringTransactionUpdate = Database['public']['Tables']['recurring_transactions']['Update'];  amount: number;
+
+  data: {
+
+    userId: string;  type: 'income' | 'expense';
+
+    accountId: string;
+
+  };type Account = Database['public']['Tables']['accounts']['Row'];  description: string;
+
+};
+
+type AccountUpdate = Database['public']['Tables']['accounts']['Update'];  transaction_date: string;
+
+// Process recurring transactions
+
+export const processRecurringTransactions = inngest.createFunction(  is_recurring: boolean;
+
+  { 
+
+    id: 'process-recurring-transactions',type GetAccountBalanceResponse = Database['public']['Functions']['get_account_balance']['Returns'];  recurring_id?: string;
+
+    name: 'Process Recurring Transactions',
+
+  },  status: 'pending' | 'completed' | 'failed';
+
+  { event: 'recurring.transaction.process' },
+
+  async ({ event, step }) => {// Initialize Inngest}
+
+    const { userId, recurringTransactionId } = event.data;
+
+export const inngest = new Inngest({ 
+
+    const recurringTx = await step.run('Fetch recurring transaction', async () => {
+
+      const supabase = createClient();  id: 'budgetiq',interface RecurringTransaction {
+
+      const { data: txData, error } = await supabase
+
+        .from('recurring_transactions')  name: 'BudgetIQ Automation',  recurring_id: string;
+
+        .select()
+
+        .eq('recurring_id', recurringTransactionId)  eventKey: process.env.INNGEST_EVENT_KEY,  user_id: string;
+
+        .single();
+
+});  account_id: string;
+
+      if (error) throw error;
+
+      if (!txData) throw new Error('Recurring transaction not found');  category_id: string;
+
+      return txData;
+
+    });// Process recurring transactions  amount: number;
+
+
+
+    await step.run('Create transaction', async () => {export const processRecurringTransactions = inngest.createFunction(  type: 'income' | 'expense';
+
+      const supabase = createClient();
+
+      const { error } = await supabase  {   description: string;
+
+        .from('transactions')
+
+        .insert({    id: 'process-recurring-transactions',  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+          user_id: userId,
+
+          account_id: recurringTx.account_id,    name: 'Process Recurring Transactions',  next_due_date: string;
+
+          category_id: recurringTx.category_id,
+
+          amount: recurringTx.amount,  },  last_generated_date?: string;
+
+          type: recurringTx.type,
+
+          description: recurringTx.description,  { event: 'recurring.transaction.process' },}
+
+          transaction_date: new Date().toISOString(),
+
+          is_recurring: true,  async ({ event, step }) => {
+
+          recurring_id: recurringTransactionId,
+
+          status: 'completed'    const { userId, recurringTransactionId } = event.data;interface Account {
+
+        });
+
+  id: string;
+
+      if (error) throw error;
+
+    });    // Get recurring transaction details  user_id: string;
+
+
+
+    await step.run('Update next due date', async () => {    const recurringTx = await step.run('Fetch recurring transaction', async () => {  name: string;
+
+      const nextDueDate = calculateNextDueDate(recurringTx.frequency, recurringTx.next_due_date);
+
+      const supabase = createClient();      const supabase = createClient();  type: string;
+
+      const { error } = await supabase
+
+        .from('recurring_transactions')      const { data: txData, error } = await supabase  balance: number;
+
+        .update({ 
+
+          last_generated_date: new Date().toISOString(),        .from('recurring_transactions')  currency: string;
+
+          next_due_date: nextDueDate
+
+        })        .select()  last_sync_at?: string;
+
+        .eq('recurring_id', recurringTransactionId);
+
+        .eq('recurring_id', recurringTransactionId)}
+
+      if (error) throw error;
+
+    });        .single();
+
+
+
+    return { success: true };// Database function return types
+
+  }
+
+);      if (error) throw error;type GetAccountBalanceResponse = {
+
+
+
+// Update account balances daily      if (!txData) throw new Error('Recurring transaction not found');  balance: number;
+
+export const updateDailyBalances = inngest.createFunction(
+
+  {       return txData;}
+
+    id: 'update-daily-balances',
+
+    name: 'Update Daily Account Balances',    });
+
+  },
+
+  { event: 'account.balance.daily-update' },// Initialize Inngest
+
+  async ({ event, step }) => {
+
+    const { userId, accountId } = event.data;    // Create new transactionexport const inngest = new Inngest({ 
+
+
+
+    const newBalance = await step.run('Calculate balance', async () => {    await step.run('Create transaction', async () => {  id: 'budgetiq',
+
+      const supabase = createClient();
+
+      const { data, error } = await supabase.rpc('get_account_balance', {      const supabase = createClient();  name: 'BudgetIQ Automation',
+
+        account_id: accountId
+
+      });      const newTransaction: TransactionInsert = {  eventKey: process.env.INNGEST_EVENT_KEY,
+
+
+
+      if (error) throw error;        user_id: userId,});
+
+      return Number(data?.balance ?? 0);
+
+    });        account_id: recurringTx.account_id,
+
+
+
+    await step.run('Update balance', async () => {        category_id: recurringTx.category_id,// Process recurring transactions
+
+      const supabase = createClient();
+
+      const { error } = await supabase        amount: recurringTx.amount,export const processRecurringTransactions = inngest.createFunction(
+
+        .from('accounts')
+
+        .update({         type: recurringTx.type,  { 
+
+          balance: newBalance,
+
+          last_sync_at: new Date().toISOString()        description: recurringTx.description,    id: 'process-recurring-transactions',
+
+        })
+
+        .eq('id', accountId);        transaction_date: new Date().toISOString(),    name: 'Process Recurring Transactions',
+
+
+
+      if (error) throw error;        is_recurring: true,  },
+
+    });
+
+        recurring_id: recurringTransactionId,  { event: 'recurring.transaction.process' },
+
+    return { success: true, newBalance };
+
+  }        status: 'completed'  async ({ event, step }) => {
+
+);
+
+      };    const { userId, recurringTransactionId } = event.data;
+
+// Helper function to calculate next due date based on frequency
+
+function calculateNextDueDate(frequency: 'daily' | 'weekly' | 'monthly' | 'yearly', currentDueDate: string): string {
+
+  const date = new Date(currentDueDate);
+
+        const { error } = await supabase    // Get recurring transaction details
+
+  switch (frequency) {
+
+    case 'daily':        .from('transactions')    const recurringTx = await step.run('Fetch recurring transaction', async () => {
+
+      date.setDate(date.getDate() + 1);
+
+      break;        .insert(newTransaction);      const supabase = createClient();
+
+    case 'weekly':
+
+      date.setDate(date.getDate() + 7);      const { data, error } = await supabase
+
+      break;
+
+    case 'monthly':      if (error) throw error;        .from('recurring_transactions')
+
+      date.setMonth(date.getMonth() + 1);
+
+      break;    });        .select()
+
+    case 'yearly':
+
+      date.setFullYear(date.getFullYear() + 1);        .eq('recurring_id', recurringTransactionId)
+
+      break;
+
+  }    // Update next due date        .single<RecurringTransaction>();
+
+  
+
+  return date.toISOString();    await step.run('Update next due date', async () => {
+
+}
+      const nextDueDate = calculateNextDueDate(recurringTx.frequency, recurringTx.next_due_date);      if (error) throw error;
+
+            if (!data) throw new Error('Recurring transaction not found');
+
+      const supabase = createClient();      return data;
+
+      const updates: RecurringTransactionUpdate = {    });
+
+        last_generated_date: new Date().toISOString(),
+
+        next_due_date: nextDueDate    // Create new transaction
+
+      };    await step.run('Create transaction', async () => {
+
+      const supabase = createClient();
+
+      const { error } = await supabase      const newTransaction: Omit<Transaction, 'id'> = {
+
+        .from('recurring_transactions')        user_id: userId,
+
+        .update(updates)        account_id: recurringTx.account_id,
+
+        .eq('recurring_id', recurringTransactionId);        category_id: recurringTx.category_id,
+
+        amount: recurringTx.amount,
+
+      if (error) throw error;        type: recurringTx.type,
+
+    });        description: recurringTx.description,
+
+        transaction_date: new Date().toISOString(),
+
+    return { success: true };        is_recurring: true,
+
+  }        recurring_id: recurringTransactionId,
+
+);        status: 'completed'
+
+      };
+
+// Update account balances daily      const { error } = await supabase
+
+export const updateDailyBalances = inngest.createFunction(        .from('transactions')
+
+  {         .insert(newTransaction);
+
+    id: 'update-daily-balances',
+
+    name: 'Update Daily Account Balances',      if (error) throw error;
+
+  },    });
+
+  { event: 'account.balance.daily-update' },
+
+  async ({ event, step }) => {    // Update next due date
+
+    const { userId, accountId } = event.data;    await step.run('Update next due date', async () => {
+
+      const nextDueDate = calculateNextDueDate(recurringTx.frequency, recurringTx.next_due_date);
+
+    // Calculate new balance      const supabase = createClient();
+
+    const newBalance = await step.run('Calculate balance', async () => {      const { error } = await supabase
+
+      const supabase = createClient();        .from('recurring_transactions')
+
+      const { data, error } = await supabase        .update({
+
+        .rpc('get_account_balance', {          last_generated_date: new Date().toISOString(),
+
+          account_id: accountId          next_due_date: nextDueDate
+
+        }) as { data: GetAccountBalanceResponse | null, error: any };        })
+
+        .eq('recurring_id', recurringTransactionId);
+
+      if (error) throw error;
+
+      return data?.balance ?? 0;      if (error) throw error;
+
+    });    });
+
+
+
+    // Update account balance    return { success: true };
+
+    await step.run('Update balance', async () => {  }
+
+      const supabase = createClient(););
+
+      const update: AccountUpdate = {
+
+        balance: newBalance,// Update account balances daily
+
+        last_sync_at: new Date().toISOString()export const updateDailyBalances = inngest.createFunction(
+
+      };  { 
+
+    id: 'update-daily-balances',
+
+      const { error } = await supabase    name: 'Update Daily Account Balances',
+
+        .from('accounts')  },
+
+        .update(update)  { event: 'account.balance.daily-update' },
+
+        .eq('id', accountId);  async ({ event, step }) => {
+
+    const { userId, accountId } = event.data;
+
+      if (error) throw error;
+
+    });    // Calculate new balance
+
+    const newBalance = await step.run('Calculate balance', async () => {
+
+    return { success: true, newBalance };      const supabase = createClient();
+
+  }      const { data, error } = await supabase
+
+);        .rpc('get_account_balance', {
+
+          account_id: accountId
+
+// Helper function to calculate next due date based on frequency        }) as { data: GetAccountBalanceResponse | null, error: any };
+
+function calculateNextDueDate(frequency: 'daily' | 'weekly' | 'monthly' | 'yearly', currentDueDate: string): string {
+
+  const date = new Date(currentDueDate);      if (error) throw error;
+
+        return data?.balance ?? 0;
+
+  switch (frequency) {    });
+
+    case 'daily':
+
+      date.setDate(date.getDate() + 1);    // Update account balance
+
+      break;    await step.run('Update balance', async () => {
+
+    case 'weekly':      const supabase = createClient();
+
+      date.setDate(date.getDate() + 7);      const update: Partial<Account> = {
+
+      break;        balance: newBalance,
+
+    case 'monthly':        last_sync_at: new Date().toISOString()
+
+      date.setMonth(date.getMonth() + 1);      };
+
+      break;      const { error } = await supabase
+
+    case 'yearly':        .from('accounts')
+
+      date.setFullYear(date.getFullYear() + 1);        .update(update)
+
+      break;        .eq('id', accountId);
+
+  }
+
+        if (error) throw error;
+
+  return date.toISOString();    });
+
+}
+    return { success: true, newBalance };
+  }
+);
+
+// Helper function to calculate next due date based on frequency
+function calculateNextDueDate(frequency: 'daily' | 'weekly' | 'monthly' | 'yearly', currentDueDate: string): string {
+  const date = new Date(currentDueDate);
+  
+  switch (frequency) {
+    case 'daily':
+      date.setDate(date.getDate() + 1);
+      break;
+    case 'weekly':
+      date.setDate(date.getDate() + 7);
+      break;
+    case 'monthly':
+      date.setMonth(date.getMonth() + 1);
+      break;
+    case 'yearly':
+      date.setFullYear(date.getFullYear() + 1);
+      break;
+  }
+  
+  return date.toISOString();
+}
