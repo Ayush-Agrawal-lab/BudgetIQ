@@ -1,21 +1,19 @@
-import React from 'react';
+
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { 
-  TrendingUp, 
-  Brain, 
-  Shield, 
-  Smartphone,
+  TrendingUp,
+  Brain,
   BarChart3,
-  Users,
   ArrowRight,
   CheckCircle,
   Plus,
   History,
-  Wallet
+  Wallet,
+  Smartphone
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface LandingPageProps {
   onNavigate: (page: string) => void;

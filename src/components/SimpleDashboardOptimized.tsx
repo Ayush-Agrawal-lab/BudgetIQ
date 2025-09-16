@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -29,7 +29,7 @@ import {
 } from 'recharts';
 
 export function SimpleDashboard() {
-  const { selectedCurrency, currencyData, setSelectedCurrency, setCurrencyData } = useCurrency();
+  const { selectedCurrency, setSelectedCurrency, setCurrencyData } = useCurrency();
 
   // Sample data - Base amounts in USD for consistent conversion
   const financialData = useMemo(() => {
@@ -134,7 +134,7 @@ export function SimpleDashboard() {
 
       {/* Quick Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {quickStats.map((stat, index) => (
+        {quickStats.map(stat => (
           <Card key={stat.title} className={`h-full bg-gradient-to-br ${stat.bgColor} hover:shadow-lg transition-shadow duration-300`}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -175,7 +175,6 @@ export function SimpleDashboard() {
           <CardContent>
             <FinancialOverviewChartEnhanced 
               data={financialData} 
-              currencySymbol={selectedCurrency === 'USD' ? '$' : currencyData.symbol}
               selectedCurrency={selectedCurrency}
             />
           </CardContent>
@@ -203,7 +202,7 @@ export function SimpleDashboard() {
                 />
               </div>
               <div className="space-y-3">
-                {categoryData.map((category, index) => (
+                {categoryData.map(category => (
                   <div
                     key={category.name}
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors duration-200 cursor-pointer"

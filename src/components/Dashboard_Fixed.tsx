@@ -1,1 +1,0 @@
-// This file has been removed - please use SimpleDashboardOptimized.tsx instead

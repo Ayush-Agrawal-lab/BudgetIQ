@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -17,8 +17,7 @@ import {
   Trash2,
   AlertTriangle,
   Save,
-  Mail,
-  Smartphone,
+  // Mail and Smartphone icons not used currently
   Eye,
   EyeOff,
   Plus,
@@ -145,11 +144,14 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleNotificationChange = (field: string, value: boolean) => {
+  type NotificationField = keyof typeof notifications;
+  type PrivacyField = keyof typeof privacy;
+
+  const handleNotificationChange = (field: NotificationField, value: boolean) => {
     setNotifications(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePrivacyChange = (field: string, value: boolean) => {
+  const handlePrivacyChange = (field: PrivacyField, value: boolean) => {
     setPrivacy(prev => ({ ...prev, [field]: value }));
   };
 
@@ -416,7 +418,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.emailNotifications}
-                    onCheckedChange={(value) => handleNotificationChange('emailNotifications', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('emailNotifications', value)}
                   />
                 </div>
 
@@ -429,7 +431,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.pushNotifications}
-                    onCheckedChange={(value) => handleNotificationChange('pushNotifications', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('pushNotifications', value)}
                   />
                 </div>
 
@@ -442,7 +444,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.budgetAlerts}
-                    onCheckedChange={(value) => handleNotificationChange('budgetAlerts', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('budgetAlerts', value)}
                   />
                 </div>
 
@@ -455,7 +457,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.weeklyReports}
-                    onCheckedChange={(value) => handleNotificationChange('weeklyReports', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('weeklyReports', value)}
                   />
                 </div>
 
@@ -468,7 +470,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.marketingEmails}
-                    onCheckedChange={(value) => handleNotificationChange('marketingEmails', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('marketingEmails', value)}
                   />
                 </div>
 
@@ -481,7 +483,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={notifications.securityAlerts}
-                    onCheckedChange={(value) => handleNotificationChange('securityAlerts', value)}
+                    onCheckedChange={(value: boolean) => handleNotificationChange('securityAlerts', value)}
                   />
                 </div>
               </div>
@@ -511,7 +513,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={privacy.shareDataForInsights}
-                    onCheckedChange={(value) => handlePrivacyChange('shareDataForInsights', value)}
+                    onCheckedChange={(value: boolean) => handlePrivacyChange('shareDataForInsights', value)}
                   />
                 </div>
 
@@ -524,7 +526,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={privacy.allowAnalytics}
-                    onCheckedChange={(value) => handlePrivacyChange('allowAnalytics', value)}
+                    onCheckedChange={(value: boolean) => handlePrivacyChange('allowAnalytics', value)}
                   />
                 </div>
 
@@ -537,7 +539,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={privacy.showInLeaderboards}
-                    onCheckedChange={(value) => handlePrivacyChange('showInLeaderboards', value)}
+                    onCheckedChange={(value: boolean) => handlePrivacyChange('showInLeaderboards', value)}
                   />
                 </div>
 
@@ -550,7 +552,7 @@ export function SettingsPage({ isDarkMode, onToggleTheme }: SettingsPageProps) {
                   </div>
                   <Switch
                     checked={privacy.publicProfile}
-                    onCheckedChange={(value) => handlePrivacyChange('publicProfile', value)}
+                    onCheckedChange={(value: boolean) => handlePrivacyChange('publicProfile', value)}
                   />
                 </div>
               </div>

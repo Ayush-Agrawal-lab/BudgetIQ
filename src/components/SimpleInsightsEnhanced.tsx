@@ -1,37 +1,33 @@
-import React, { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { CurrencySelector, convertToUSD, formatUSD, formatInCurrency } from './CurrencySelector';
+import { CurrencySelector, formatUSD, formatInCurrency } from './CurrencySelector';
 import { useCurrency } from './CurrencyContext';
-import { getCategoryColors, getFinancialColors } from './ChartColors';
+import { getChartColors } from './ChartColors';
 import { 
   Brain,
   TrendingUp,
-  TrendingDown,
-  AlertCircle,
+  Activity,
   Target,
-  Lightbulb,
+  AlertCircle,
   Trophy,
-  Calendar,
-  Sparkles,
-  Activity
+  Calendar as CalendarIcon,
+  Lightbulb
 } from 'lucide-react';
-import { motion } from 'motion/react';
+
+import { motion } from 'framer-motion';
 import { 
   BarChart, 
   Bar, 
   XAxis, 
   YAxis, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   Tooltip
 } from 'recharts';
 
 export function SimpleInsightsEnhanced() {
-  const { selectedCurrency, currencyData, setSelectedCurrency, setCurrencyData } = useCurrency();
+  const { selectedCurrency, setSelectedCurrency, setCurrencyData } = useCurrency();
 
   const handleCurrencyChange = useCallback((currency: { code: string; symbol: string; name: string; rate: number }) => {
     setSelectedCurrency(currency.code);
@@ -393,12 +389,12 @@ export function SimpleInsightsEnhanced() {
               <BarChart data={monthlyComparison} barCategoryGap={30} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                 <defs>
                   <linearGradient id="spendingGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={getFinancialColors().expenses} stopOpacity={1}/>
-                    <stop offset="95%" stopColor={getFinancialColors().expenses} stopOpacity={0.6}/>
+                    <stop offset="5%" stopColor={getChartColors().chart1} stopOpacity={1}/>
+                    <stop offset="95%" stopColor={getChartColors().chart1} stopOpacity={0.6}/>
                   </linearGradient>
                   <linearGradient id="predictedGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={getFinancialColors().primary} stopOpacity={1}/>
-                    <stop offset="95%" stopColor={getFinancialColors().primary} stopOpacity={0.6}/>
+                    <stop offset="5%" stopColor={getChartColors().primary} stopOpacity={1}/>
+                    <stop offset="95%" stopColor={getChartColors().primary} stopOpacity={0.6}/>
                   </linearGradient>
                   <filter id="glow">
                     <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -436,7 +432,7 @@ export function SimpleInsightsEnhanced() {
                   fill="url(#spendingGradient)" 
                   name="spending" 
                   radius={[6, 6, 0, 0]}
-                  stroke={getFinancialColors().expenses}
+                  stroke={getChartColors().chart1}
                   strokeWidth={2}
                   filter="url(#glow)"
                 />
@@ -445,7 +441,7 @@ export function SimpleInsightsEnhanced() {
                   fill="url(#predictedGradient)" 
                   name="predicted" 
                   radius={[6, 6, 0, 0]}
-                  stroke={getFinancialColors().primary}
+                  stroke={getChartColors().primary}
                   strokeWidth={2}
                   filter="url(#glow)"
                 />
@@ -458,8 +454,8 @@ export function SimpleInsightsEnhanced() {
                 <div 
                   className="w-4 h-4 rounded-full border-2"
                   style={{ 
-                    backgroundColor: getFinancialColors().expenses + '80',
-                    borderColor: getFinancialColors().expenses
+                    backgroundColor: getChartColors().chart1 + '80',
+                    borderColor: getChartColors().chart1
                   }}
                 />
                 <span className="text-sm font-medium text-foreground">Actual Spending</span>
@@ -468,8 +464,8 @@ export function SimpleInsightsEnhanced() {
                 <div 
                   className="w-4 h-4 rounded-full border-2"
                   style={{ 
-                    backgroundColor: getFinancialColors().primary + '80',
-                    borderColor: getFinancialColors().primary
+                    backgroundColor: getChartColors().primary + '80',
+                    borderColor: getChartColors().primary
                   }}
                 />
                 <span className="text-sm font-medium text-foreground">AI Prediction</span>
@@ -559,7 +555,7 @@ export function SimpleInsightsEnhanced() {
                 animate={{ rotate: 360 }}
                 transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
               >
-                <Calendar className="h-5 w-5 mr-2 text-success" />
+                <CalendarIcon className="h-5 w-5 mr-2 text-success" />
               </motion.div>
               AI Learning Progress
             </CardTitle>

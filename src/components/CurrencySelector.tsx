@@ -1,4 +1,3 @@
-import React from 'react';
 import { Badge } from './ui/badge';
 import { 
   Select,
@@ -43,7 +42,7 @@ export function CurrencySelector({ selectedCurrency, onCurrencyChange }: Currenc
         <span>Results: USD</span>
       </Badge>
       
-      <Select value={selectedCurrency} onValueChange={(value) => {
+      <Select value={selectedCurrency} onValueChange={(value: string) => {
         const currency = currencies.find(c => c.code === value);
         if (currency) onCurrencyChange(currency);
       }}>

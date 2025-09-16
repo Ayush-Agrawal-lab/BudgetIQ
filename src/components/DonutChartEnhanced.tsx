@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';
 import { getCategoryColors } from './ChartColors';
 import { formatUSD, formatInCurrency } from './CurrencySelector';
@@ -56,7 +56,7 @@ export function DonutChartEnhanced({
   const RADIAN = Math.PI / 180;
   
   const renderCustomizedLabel = ({
-    cx, cy, midAngle, innerRadius, outerRadius, percent, name
+    cx, cy, midAngle, innerRadius, outerRadius, percent
   }: any) => {
     if (percent < 0.05) return null;
     
@@ -111,7 +111,7 @@ export function DonutChartEnhanced({
     return null;
   };
 
-  const handleSegmentClick = useCallback((data: any, index: number) => {
+  const handleSegmentClick = useCallback((data: any) => {
     const categoryName = data.name;
     setSelectedSegment(categoryName);
     

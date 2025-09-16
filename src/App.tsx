@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CurrencyProvider } from './components/CurrencyContext';
 import { LocationProvider } from './components/LocationContext';

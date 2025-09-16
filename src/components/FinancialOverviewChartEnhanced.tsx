@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion } from 'motion/react';
 import { getFinancialColors } from './ChartColors';
@@ -14,11 +14,10 @@ interface FinancialData {
 
 interface FinancialOverviewChartProps {
   data: FinancialData;
-  currencySymbol?: string;
   selectedCurrency?: string;
 }
 
-export function FinancialOverviewChartEnhanced({ data, currencySymbol = '$', selectedCurrency = 'USD' }: FinancialOverviewChartProps) {
+export function FinancialOverviewChartEnhanced({ data, selectedCurrency = 'USD' }: FinancialOverviewChartProps) {
   const colors = useMemo(() => getFinancialColors(), []);
   
   const chartData = useMemo(() => [
@@ -66,7 +65,7 @@ export function FinancialOverviewChartEnhanced({ data, currencySymbol = '$', sel
     return null;
   };
 
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, name, percentage }: any) => {
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percentage }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.7;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);

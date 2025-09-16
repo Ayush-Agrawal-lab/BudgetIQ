@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -14,7 +14,6 @@ import {
   Calendar,
   DollarSign,
   Tag,
-  FileText,
   CheckCircle,
   Sparkles
 } from 'lucide-react';
@@ -246,7 +245,7 @@ export function AddTransactionEnhanced() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Category *</Label>
-                  <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+                  <Select value={formData.category} onValueChange={(value: string) => setFormData({...formData, category: value})}>
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -262,7 +261,7 @@ export function AddTransactionEnhanced() {
 
                 <div>
                   <Label>Account *</Label>
-                  <Select value={formData.account} onValueChange={(value) => setFormData({...formData, account: value})}>
+                  <Select value={formData.account} onValueChange={(value: string) => setFormData({...formData, account: value})}>
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select account" />
                     </SelectTrigger>

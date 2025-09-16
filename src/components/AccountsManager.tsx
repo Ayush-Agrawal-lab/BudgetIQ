@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -25,7 +25,7 @@ import { motion } from 'motion/react';
 export function AccountsManager() {
   const [showBalances, setShowBalances] = useState(true);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
-  const { selectedCurrency, currencyData, setSelectedCurrency, setCurrencyData } = useCurrency();
+  const { selectedCurrency, setSelectedCurrency, setCurrencyData } = useCurrency();
   const [newAccount, setNewAccount] = useState({
     name: '',
     type: '',
@@ -246,7 +246,7 @@ export function AccountsManager() {
                   
                   <div>
                     <Label>Account Type *</Label>
-                    <Select value={newAccount.type} onValueChange={(value) => setNewAccount({...newAccount, type: value})}>
+                    <Select value={newAccount.type} onValueChange={(value: string) => setNewAccount({...newAccount, type: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select account type" />
                       </SelectTrigger>
