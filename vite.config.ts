@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    strictPort: true,
+    strictPort: false, // Allow Vite to use another port if 3000 is taken
     // Needed for Codespaces
     hmr: {
       clientPort: 443
