@@ -51,22 +51,29 @@ A modern, minimalist personal finance platform with AI-powered expense predictio
 ## 📁 Project Structure
 
 ```
-/app/
+/
 ├── backend/
-│   ├── server.py          # Complete backend (Auth, CRUD, AI models)
-│   ├── requirements.txt   # Python dependencies
-│   └── .env              # Environment variables
+│   ├── create_tables.sql     # Database schema
+│   ├── requirements.txt      # Python dependencies
+│   ├── server.py            # Main backend server
+│   └── verify_supabase.py   # Database verification
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js        # All React components and pages
-│   │   ├── App.css       # All styles (light/dark themes)
-│   │   └── components/ui/ # Shadcn UI components
-│   ├── package.json      # Node dependencies
-│   └── .env             # Frontend config
-└── README.md            # This file
+│   │   ├── App.js           # Main React component
+│   │   ├── App.css          # Global styles
+│   │   ├── components/
+│   │   │   └── ui/          # Shadcn UI components
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── lib/             # Utility functions
+│   ├── components.json      # UI components config
+│   ├── package.json         # Node dependencies
+│   ├── tailwind.config.js   # Tailwind CSS config
+│   └── README.md           # Frontend documentation
+├── tests/                   # Python test files
+└── README.md               # Main documentation
 ```
 
-**Note**: The entire application is built with **minimal files** - just 3 main files (server.py, App.js, App.css)!
+**Note**: The project uses a modern, organized structure with separate backend and frontend directories, along with comprehensive UI components from Shadcn UI.
 
 ## 🚀 Getting Started
 
