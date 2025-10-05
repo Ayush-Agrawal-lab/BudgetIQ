@@ -18,10 +18,43 @@ from supabase import create_client, Client
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Environment and API configuration
+ENV = os.getenv('ENV', 'development')
+HOST = os.getenv('HOST', 'localhost')
+PORT = int(os.getenv('PORT', '8000'))
+API_URL = f"http://{HOST}:{PORT}" if ENV == 'development' else os.getenv('API_URL', 'https://budgetiq-backend.onrender.com')
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Supabase connection
 supabase_url = os.environ['SUPABASE_URL']
 supabase_key = os.environ['SUPABASE_SERVICE_KEY']
 supabase: Client = create_client(supabase_url, supabase_key)
+
+# Import contextlib for lifespan management
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_database()
+    logger.info("✅ BudgetIQ API started with Supabase")
+    
+    # Log configuration details
+    logger.info(f"Environment: {os.getenv('ENV', 'development')}")
+    logger.info(f"CORS Origins: {os.environ.get('CORS_ORIGINS', '*')}")
+    logger.info(f"Supabase URL: {supabase_url}")
+    logger.info(f"API Documentation: {API_URL}/docs")
+    
+    yield
+    
+    # Shutdown
+    logger.info("👋 BudgetIQ API shutdown")
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,8 +62,19 @@ SECRET_KEY = "budgetiq-secret-key-college-project-2025"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
-app = FastAPI()
-api_router = APIRouter(prefix="/api")
+app = FastAPI(
+    title="BudgetIQ API",
+    description="API for BudgetIQ personal finance management platform",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configure response caching
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# API router with prefix and tags
+api_router = APIRouter(prefix="/api", tags=["BudgetIQ"])
 
 # ==================== DATABASE INITIALIZATION ====================
 
@@ -541,12 +585,19 @@ async def get_dashboard_summary(user_id: str = Depends(get_current_user)):
 # Include router
 app.include_router(api_router)
 
+# Configure CORS with more specific settings
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://ayush-agrawal-lab.github.io",
+        "https://money-insight-20.preview.emergentagent.com"
+    ],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["X-Total-Count"],
+    max_age=3600
 )
 
 logging.basicConfig(
@@ -555,11 +606,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("startup")
-async def startup_event():
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0"
+    }
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     await init_database()
     logger.info("✅ BudgetIQ API started with Supabase")
-
-@app.on_event("shutdown")
-async def shutdown_event():
+    
+    # Log configuration details
+    logger.info(f"Environment: {os.getenv('ENV', 'development')}")
+    logger.info(f"CORS Origins: {os.environ.get('CORS_ORIGINS', '*')}")
+    logger.info(f"Supabase URL: {supabase_url}")
+    logger.info(f"API Documentation: {API_URL}/docs")
+    
+    yield
+    
+    # Shutdown
     logger.info("👋 BudgetIQ API shutdown")

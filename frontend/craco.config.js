@@ -1,32 +1,25 @@
-// Load configuration from environment or config file
 const path = require('path');
-
-// Environment variable overrides
-const config = {
-  disableHotReload: process.env.DISABLE_HOT_RELOAD === 'true',
-};
+const workboxPlugin = require('./craco-plugins/workbox');
 
 module.exports = {
   webpack: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, './src')
     },
-    configure: (webpackConfig) => {
-      
-      // Disable hot reload completely if environment variable is set
-      if (config.disableHotReload) {
-        // Remove hot reload related plugins
+    configure: (webpackConfig, { env, paths }) => {
+      // Filter out HotModuleReplacementPlugin in production
+      if (env === 'production') {
         webpackConfig.plugins = webpackConfig.plugins.filter(plugin => {
           return !(plugin.constructor.name === 'HotModuleReplacementPlugin');
         });
         
-        // Disable watch mode
+        // Disable watch mode in production
         webpackConfig.watch = false;
         webpackConfig.watchOptions = {
           ignored: /.*/, // Ignore all files
         };
       } else {
-        // Add ignored patterns to reduce watched directories
+        // Add ignored patterns to reduce watched directories in development
         webpackConfig.watchOptions = {
           ...webpackConfig.watchOptions,
           ignored: [
@@ -41,6 +34,17 @@ module.exports = {
       }
       
       return webpackConfig;
-    },
+    }
   },
+  style: {
+    postcss: {
+      plugins: [
+        require('tailwindcss'),
+        require('autoprefixer')
+      ]
+    }
+  },
+  plugins: [
+    { plugin: workboxPlugin }
+  ]
 };

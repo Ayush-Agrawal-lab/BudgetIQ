@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
 import { Button } from './components/ui/button';
@@ -13,10 +13,33 @@ import { Sun, Moon, Plus, TrendingUp, TrendingDown, Wallet, DollarSign, PieChart
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+// Configure axios defaults and interceptors
+axios.defaults.baseURL = API_URL;
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  }
+);
+
 function App() {
   const [theme, setTheme] = useState('light');
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
