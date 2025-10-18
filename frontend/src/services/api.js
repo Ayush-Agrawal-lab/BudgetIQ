@@ -1,113 +1,204 @@
 import axios from 'axios';
 
-// ----------------------------
-// Environment variables
-// ----------------------------
-const API_BASE = process.env.REACT_APP_BACKEND_URL;  // Use Render default backend URL
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+// ---------------------------
+// Environment-based API URL
+// ---------------------------
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
-console.log("Using API Base:", API_BASE);
+// ---------------------------
+// rrweb network logging helper
+// ---------------------------
+function rrEmitNetworkEvent(eventData) {
+  if (window.__rr && typeof window.__rr.addCustomEvent === 'function') {
+    window.__rr.addCustomEvent('network', {
+      ...eventData,
+      timestamp: Date.now(),
+    });
+  }
+}
 
-// ----------------------------
+// ---------------------------
 // Axios instance
-// ----------------------------
+// ---------------------------
 const api = axios.create({
-  baseURL: API_BASE,
-  headers: { "Content-Type": "application/json" },
-  timeout: 10000,
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// JWT for Render backend, Anon key for Supabase
+// Add JWT token automatically if available
 api.interceptors.request.use((config) => {
-  // Supabase calls (if you ever call Supabase directly from frontend)
-  if (config.baseURL === SUPABASE_URL) {
-    config.headers.apikey = SUPABASE_ANON_KEY;
-    config.headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
-  } else {
-    // Backend calls
-    const token = localStorage.getItem("token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+
+  rrEmitNetworkEvent({
+    phase: 'start',
+    api: 'axios',
+    url: config.url,
+    method: config.method,
+    headers: config.headers,
+    requestBody: JSON.stringify(config.data || {}),
+  });
+
   return config;
 });
 
-// ----------------------------
-// Error handling
-// ----------------------------
 api.interceptors.response.use(
-  res => res,
-  err => {
-    console.error("API Error:", err.message);
+  (response) => {
+    rrEmitNetworkEvent({
+      phase: 'end',
+      api: 'axios',
+      url: response.config.url,
+      method: response.config.method,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      responseBody: JSON.stringify(response.data || {}),
+    });
+    return response;
+  },
+  (error) => {
+    const config = error.config || {};
+    rrEmitNetworkEvent({
+      phase: 'error',
+      api: 'axios',
+      url: config.url,
+      method: config.method,
+      message: error.message,
+      stack: error.stack || '',
+    });
 
-    // SSL / Network error alert
-    if (err.code === "ERR_NETWORK" || err.message.includes("certificate")) {
-      alert(`Network/SSL error. Check your API URL: ${API_BASE}`);
+    console.error('API Error:', error.message);
+
+    // Friendly alert for SSL/Network issues
+    if (
+      error.code === 'ERR_NETWORK' ||
+      error.message.includes('certificate') ||
+      error.message.includes('Network Error')
+    ) {
+      alert(
+        `Network/SSL error while calling API: ${config.url}\n` +
+          `Check your backend URL and SSL certificate.`
+      );
     }
-    return Promise.reject(err);
+
+    return Promise.reject(error);
   }
 );
 
-export default api;
-
-// ----------------------------
+// ---------------------------
 // Auth APIs
-// ----------------------------
+// ---------------------------
 export const auth = {
   signup: async (email, password) => {
-    const response = await api.post("/api/auth/signup", { email, password });
-    localStorage.setItem("token", response.data.access_token);
+    const response = await api.post('/api/auth/signup', { email, password });
+    localStorage.setItem('token', response.data.access_token);
     return response.data;
   },
+
   login: async (email, password) => {
-    const response = await api.post("/api/auth/login", { email, password });
-    localStorage.setItem("token", response.data.access_token);
+    const response = await api.post('/api/auth/login', { email, password });
+    localStorage.setItem('token', response.data.access_token);
     return response.data;
   },
-  getProfile: async () => (await api.get("/api/auth/me")).data,
-  logout: () => localStorage.removeItem("token"),
+
+  getProfile: async () => {
+    const response = await api.get('/api/auth/me');
+    return response.data;
+  },
+
+  logout: () => {
+    localStorage.removeItem('token');
+  },
 };
 
-// ----------------------------
+// ---------------------------
 // Accounts APIs
-// ----------------------------
+// ---------------------------
 export const accounts = {
-  getAll: async () => (await api.get("/api/accounts")).data,
-  create: async (accountData) => (await api.post("/api/accounts", accountData)).data,
-  delete: async (accountId) => (await api.delete(`/api/accounts/${accountId}`)).data,
+  getAll: async () => {
+    const response = await api.get('/api/accounts');
+    return response.data;
+  },
+  create: async (accountData) => {
+    const response = await api.post('/api/accounts', accountData);
+    return response.data;
+  },
+  delete: async (accountId) => {
+    const response = await api.delete(`/api/accounts/${accountId}`);
+    return response.data;
+  },
 };
 
-// ----------------------------
+// ---------------------------
 // Transactions APIs
-// ----------------------------
+// ---------------------------
 export const transactions = {
-  getAll: async () => (await api.get("/api/transactions")).data,
-  create: async (transactionData) => (await api.post("/api/transactions", transactionData)).data,
-  delete: async (transactionId) => (await api.delete(`/api/transactions/${transactionId}`)).data,
+  getAll: async () => {
+    const response = await api.get('/api/transactions');
+    return response.data;
+  },
+  create: async (transactionData) => {
+    const response = await api.post('/api/transactions', transactionData);
+    return response.data;
+  },
+  delete: async (transactionId) => {
+    const response = await api.delete(`/api/transactions/${transactionId}`);
+    return response.data;
+  },
 };
 
-// ----------------------------
+// ---------------------------
 // Goals APIs
-// ----------------------------
+// ---------------------------
 export const goals = {
-  getAll: async () => (await api.get("/api/goals")).data,
-  create: async (goalData) => (await api.post("/api/goals", goalData)).data,
-  update: async (goalId, goalData) => (await api.put(`/api/goals/${goalId}`, goalData)).data,
-  delete: async (goalId) => (await api.delete(`/api/goals/${goalId}`)).data,
+  getAll: async () => {
+    const response = await api.get('/api/goals');
+    return response.data;
+  },
+  create: async (goalData) => {
+    const response = await api.post('/api/goals', goalData);
+    return response.data;
+  },
+  update: async (goalId, goalData) => {
+    const response = await api.put(`/api/goals/${goalId}`, goalData);
+    return response.data;
+  },
+  delete: async (goalId) => {
+    const response = await api.delete(`/api/goals/${goalId}`);
+    return response.data;
+  },
 };
 
-// ----------------------------
+// ---------------------------
 // AI Insights APIs
-// ----------------------------
+// ---------------------------
 export const insights = {
-  getPrediction: async () => (await api.get("/api/insights/prediction")).data,
-  getTips: async () => (await api.get("/api/insights/tips")).data,
-  getScore: async () => (await api.get("/api/insights/score")).data,
+  getPrediction: async () => {
+    const response = await api.get('/api/insights/prediction');
+    return response.data;
+  },
+  getTips: async () => {
+    const response = await api.get('/api/insights/tips');
+    return response.data;
+  },
+  getScore: async () => {
+    const response = await api.get('/api/insights/score');
+    return response.data;
+  },
 };
 
-// ----------------------------
+// ---------------------------
 // Dashboard APIs
-// ----------------------------
+// ---------------------------
 export const dashboard = {
-  getSummary: async () => (await api.get("/api/dashboard/summary")).data,
+  getSummary: async () => {
+    const response = await api.get('/api/dashboard/summary');
+    return response.data;
+  },
 };
+
+export default api;
