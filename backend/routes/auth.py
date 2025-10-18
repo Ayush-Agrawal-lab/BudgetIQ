@@ -1,88 +1,145 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from passlib.context import CryptContext
-from services.supabase_service import get_user_by_email, create_user
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+import axios from 'axios';
 
-from config import settings
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
-router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+// Create axios instance
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+// Add JWT token automatically if available
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-class TokenData(BaseModel):
-    email: Optional[str] = None
+// ---------------------------
+// Auth APIs
+// ---------------------------
+export const auth = {
+  signup: async (email, password) => {
+    const response = await api.post('/api/auth/signup', { email, password });
+    // Save token
+    localStorage.setItem('token', response.data.access_token);
+    return response.data;
+  },
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
+  login: async (email, password) => {
+    const response = await api.post('/api/auth/login', { email, password });
+    // Save token
+    localStorage.setItem('token', response.data.access_token);
+    return response.data;
+  },
 
-async def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
-    return encoded_jwt
+  getProfile: async () => {
+    const response = await api.get('/api/auth/me');
+    return response.data;
+  },
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = TokenData(email=email)
-        return token_data
-    except JWTError:
-        raise credentials_exception
+  logout: () => {
+    localStorage.removeItem('token');
+  },
+};
 
-@router.post("/signup", response_model=Token)
-async def signup(user: UserCreate):
-    # Check if user exists in Supabase
-    existing_user = await get_user_by_email(user.email)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hash password and create user in Supabase
-    hashed_password = pwd_context.hash(user.password)
-    await create_user(user.email, hashed_password)
-    
-    access_token = await create_access_token({"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+// ---------------------------
+// Accounts APIs
+// ---------------------------
+export const accounts = {
+  getAll: async () => {
+    const response = await api.get('/api/accounts');
+    return response.data;
+  },
 
-@router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    # Get user from Supabase
-    user = await get_user_by_email(form_data.username)
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Verify password
-    if not pwd_context.verify(form_data.password, user["password"]):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token = await create_access_token({"sub": form_data.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+  create: async (accountData) => {
+    const response = await api.post('/api/accounts', accountData);
+    return response.data;
+  },
 
-@router.get("/me")
-async def get_current_user_info(current_user: TokenData = Depends(get_current_user)):
-    return {"email": current_user.email}
+  delete: async (accountId) => {
+    const response = await api.delete(`/api/accounts/${accountId}`);
+    return response.data;
+  },
+};
+
+// ---------------------------
+// Transactions APIs
+// ---------------------------
+export const transactions = {
+  getAll: async () => {
+    const response = await api.get('/api/transactions');
+    return response.data;
+  },
+
+  create: async (transactionData) => {
+    const response = await api.post('/api/transactions', transactionData);
+    return response.data;
+  },
+
+  delete: async (transactionId) => {
+    const response = await api.delete(`/api/transactions/${transactionId}`);
+    return response.data;
+  },
+};
+
+// ---------------------------
+// Goals APIs
+// ---------------------------
+export const goals = {
+  getAll: async () => {
+    const response = await api.get('/api/goals');
+    return response.data;
+  },
+
+  create: async (goalData) => {
+    const response = await api.post('/api/goals', goalData);
+    return response.data;
+  },
+
+  update: async (goalId, goalData) => {
+    const response = await api.put(`/api/goals/${goalId}`, goalData);
+    return response.data;
+  },
+
+  delete: async (goalId) => {
+    const response = await api.delete(`/api/goals/${goalId}`);
+    return response.data;
+  },
+};
+
+// ---------------------------
+// AI Insights APIs
+// ---------------------------
+export const insights = {
+  getPrediction: async () => {
+    const response = await api.get('/api/insights/prediction');
+    return response.data;
+  },
+
+  getTips: async () => {
+    const response = await api.get('/api/insights/tips');
+    return response.data;
+  },
+
+  getScore: async () => {
+    const response = await api.get('/api/insights/score');
+    return response.data;
+  },
+};
+
+// ---------------------------
+// Dashboard APIs
+// ---------------------------
+export const dashboard = {
+  getSummary: async () => {
+    const response = await api.get('/api/dashboard/summary');
+    return response.data;
+  },
+};
+
+export default api;
