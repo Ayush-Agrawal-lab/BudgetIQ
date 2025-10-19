@@ -9,7 +9,6 @@ from passlib.context import CryptContext
 from collections import defaultdict
 import numpy as np
 from supabase import create_client, Client
-import os
 
 from config import settings
 
@@ -19,7 +18,7 @@ supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 # ---------------- SECURITY ----------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = settings.JWT_SECRET
-ALGORITHM = "HS256"
+ALGORITHM = settings.JWT_ALGORITHM
 security = HTTPBearer()
 
 # ---------------- ROUTER ----------------
@@ -170,3 +169,8 @@ def calculate_financial_score(transactions: List[dict], accounts: List[dict]) ->
     if total_balance>total_expense: score+=10
     elif total_balance>total_expense*0.5: score+=5
     return min(100,max(0,int(score)))
+
+# ---------------- DATABASE INIT (Optional Placeholder) ----------------
+async def init_database():
+    # Initialize or test Supabase connection here if needed
+    return True
