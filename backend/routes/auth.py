@@ -5,15 +5,15 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from fastapi.security import OAuth2PasswordBearer
 
 from config import settings
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# ---------------------------
-# Pydantic models
-# ---------------------------
+# --------------------------- Pydantic Models ---------------------------
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -29,9 +29,7 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-# ---------------------------
-# JWT helpers
-# ---------------------------
+# --------------------------- JWT Helpers ---------------------------
 async def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=settings.JWT_EXPIRATION_MINUTES)
@@ -39,10 +37,7 @@ async def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(lambda: None)):  # Optional dependency for simplicity
-    from fastapi.security import OAuth2PasswordBearer
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-    token = await oauth2_scheme(token)
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",
@@ -53,15 +48,11 @@ async def get_current_user(token: str = Depends(lambda: None)):  # Optional depe
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-        token_data = TokenData(email=email)
-        return token_data
+        return TokenData(email=email)
     except JWTError:
         raise credentials_exception
 
-# ---------------------------
-# Endpoints
-# ---------------------------
-
+# --------------------------- Endpoints ---------------------------
 @router.post("/signup", response_model=Token)
 async def signup(user: UserCreate):
     # Check if user exists
