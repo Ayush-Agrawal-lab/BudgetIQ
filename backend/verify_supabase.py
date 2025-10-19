@@ -1,74 +1,53 @@
-"""
-Verify Supabase database setup for BudgetIQ
-Run this after executing the SQL script in Supabase dashboard
-"""
-
+# services/supabase_service.py
 from supabase import create_client
 import os
 from dotenv import load_dotenv
 from pathlib import Path
 
 # Load environment variables
-ROOT_DIR = Path(__file__).parent
+ROOT_DIR = Path(__file__).parent.parent  # Adjust if needed
 load_dotenv(ROOT_DIR / '.env')
 
-# Connect to Supabase
-supabase_url = os.environ['SUPABASE_URL']
-supabase_key = os.environ['SUPABASE_SERVICE_KEY']
-supabase = create_client(supabase_url, supabase_key)
+SUPABASE_URL = os.environ['SUPABASE_URL']
+SUPABASE_KEY = os.environ['SUPABASE_KEY']  # Use anon/public key for frontend, service key for backend
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-print("🔍 Verifying Supabase Database Setup for BudgetIQ\n")
-print(f"📡 Supabase URL: {supabase_url}")
-print(f"🔑 Using service role key: {supabase_key[:20]}...\n")
+# ---------------------------
+# USERS
+# ---------------------------
+async def get_user_by_email(email: str):
+    result = supabase.table("users").select("*").eq("email", email).execute()
+    if result.data and len(result.data) > 0:
+        return result.data[0]
+    return None
 
-# Check each table
-tables = ['users', 'accounts', 'transactions', 'goals']
-verified_tables = []
-missing_tables = []
+async def create_user(email: str, hashed_password: str):
+    result = supabase.table("users").insert({"email": email, "password": hashed_password}).execute()
+    return result.data[0] if result.data else None
 
-print("📋 Checking tables...\n")
+# ---------------------------
+# ACCOUNTS
+# ---------------------------
+async def get_user_accounts(user_id: str):
+    """Return all accounts for a specific user"""
+    result = supabase.table("accounts").select("*").eq("user_id", user_id).execute()
+    return result.data if result.data else []
 
-for table in tables:
-    try:
-        # Try to query the table
-        result = supabase.table(table).select('id').limit(1).execute()
-        
-        # Get count
-        count_result = supabase.table(table).select('id', count='exact').execute()
-        count = count_result.count if hasattr(count_result, 'count') else len(count_result.data)
-        
-        verified_tables.append(table)
-        print(f"   ✅ {table:<15} EXISTS ({count} rows)")
-    except Exception as e:
-        missing_tables.append(table)
-        print(f"   ❌ {table:<15} NOT FOUND")
+async def get_account_by_id(account_id: str, user_id: str):
+    """Return a single account by ID for the current user"""
+    result = supabase.table("accounts") \
+                     .select("*") \
+                     .eq("id", account_id) \
+                     .eq("user_id", user_id) \
+                     .execute()
+    return result.data[0] if result.data and len(result.data) > 0 else None
 
-print("\n" + "="*50 + "\n")
+async def create_account(account_data: dict):
+    """Create a new account"""
+    result = supabase.table("accounts").insert(account_data).execute()
+    return result.data[0] if result.data else None
 
-if len(verified_tables) == 4:
-    print("🎉 SUCCESS! All tables are ready!")
-    print("\n✅ Your BudgetIQ database is fully set up with Supabase!")
-    print("\n🚀 You can now:")
-    print("   • Create user accounts")
-    print("   • Add financial accounts")
-    print("   • Track transactions")
-    print("   • Set savings goals")
-    print("   • Get AI predictions")
-    print("\n🌐 Test the API at:")
-    print("   https://money-insight-20.preview.emergentagent.com")
-    
-elif len(verified_tables) > 0:
-    print(f"⚠️  PARTIAL SETUP: {len(verified_tables)}/4 tables found")
-    print(f"\n✅ Working tables: {', '.join(verified_tables)}")
-    print(f"❌ Missing tables: {', '.join(missing_tables)}")
-    print("\n📝 Please run the SQL script again for missing tables")
-    
-else:
-    print("❌ NO TABLES FOUND")
-    print("\n📝 You need to create the database tables:")
-    print("\n1. Open: https://supabase.com/dashboard/project/uoegewoftdwhikefqbfu/sql/new")
-    print("2. Copy the SQL from: /app/backend/create_tables.sql")
-    print("3. Paste and click RUN")
-    print("\nOr follow instructions in: /app/SUPABASE_SETUP_INSTRUCTIONS.md")
-
-print("\n" + "="*50)
+async def delete_account(account_id: str, user_id: str):
+    """Delete an account by ID for the current user"""
+    result = supabase.table("accounts").delete().eq("id", account_id).eq("user_id", user_id).execute()
+    return True if result.data and len(result.data) > 0 else False
