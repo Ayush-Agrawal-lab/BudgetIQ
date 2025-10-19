@@ -34,6 +34,10 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -95,16 +99,69 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def create_token(user_id: str) -> str:
-    payload = {"user_id": user_id, "exp": datetime.now(timezone.utc) + timedelta(days=7)}
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7)
+    }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     try:
         token = credentials.credentials
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload["user_id"]
-    except:
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        # Fetch user from Supabase
+        result = supabase.table("users").select("*").eq("id", user_id).execute()
+        if not result.data or len(result.data) == 0:
+            raise HTTPException(status_code=401, detail="User not found")
+        return result.data[0]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+# ---------------- AUTH ENDPOINTS ----------------
+@api_router.post("/auth/signup", response_model=TokenResponse)
+async def signup(user: UserSignup):
+    existing = supabase.table("users").select("*").eq("email", user.email).execute()
+    if existing.data and len(existing.data) > 0:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = {
+        "id": str(uuid.uuid4()),
+        "name": user.name,
+        "email": user.email,
+        "password": hash_password(user.password),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    supabase.table("users").insert(new_user).execute()
+    token = create_token(new_user["id"])
+    return {"access_token": token}
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login(user: UserLogin):
+    result = supabase.table("users").select("*").eq("email", user.email).execute()
+    if not result.data or len(result.data) == 0:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    db_user = result.data[0]
+    if not verify_password(user.password, db_user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    token = create_token(db_user["id"])
+    return {"access_token": token}
+
+@api_router.get("/auth/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    return {
+        "id": current_user["id"],
+        "name": current_user["name"],
+        "email": current_user["email"],
+        "created_at": current_user["created_at"]
+    }
 
 # ---------------- AI & INSIGHTS ----------------
 def predict_next_month_expense(transactions: List[dict]) -> dict:
@@ -172,5 +229,5 @@ def calculate_financial_score(transactions: List[dict], accounts: List[dict]) ->
 
 # ---------------- DATABASE INIT (Optional Placeholder) ----------------
 async def init_database():
-    # Initialize or test Supabase connection here if needed
+    # Test Supabase connection if needed
     return True
