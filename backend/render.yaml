@@ -2,9 +2,9 @@ services:
   - type: web
     name: budgetiq-backend
     env: python
-    plan: starter  # optional, choose your plan
+    plan: starter
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
         sync: true
@@ -15,8 +15,8 @@ services:
       - key: ARCJET_API_KEY
         sync: true
       - key: CORS_ORIGINS
-        value: https://ayush-agrawal-lab.github.io
+        value: "https://ayush-agrawal-lab.github.io,http://localhost:3000"
       - key: PYTHON_VERSION
-        value: 3.13
+        value: "3.13"
     autoDeploy: true
     rootDirectory: backend

@@ -1,37 +1,50 @@
+# app/routers.py
+# In app/routers.py or app/main.py
+from .services import supabase_service
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
 import jwt
-from passlib.context import CryptContext
-from collections import defaultdict
 import numpy as np
-from services.supabase_service import (
-    supabase,
-    get_user_by_email,
-    create_user,
-    get_user_accounts,
-    get_account_by_id,
-    create_account,
-    delete_account
-)
+from passlib.context import CryptContext
+from app.services.supabase_service import supabase
+from config import settings
+from fastapi.security import OAuth2PasswordBearer
 
-# ---------------- ROUTER ----------------
-api_router = APIRouter(tags=["BudgetIQ"])
-
-# ---------------- SECURITY ----------------
+# ---------------- Security ----------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-SECRET_KEY = "replace_with_env_secret"  # override from settings in server.py
-ALGORITHM = "HS256"
+SECRET_KEY = settings.JWT_SECRET
+ALGORITHM = settings.JWT_ALGORITHM
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# ---------------- MODELS ----------------
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def create_access_token(user_id: str):
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
+    payload = {"user_id": user_id, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("user_id")
+        if not user_id:
+            raise credentials_exception
+        return {"user_id": user_id}
+    except jwt.JWTError:
+        raise credentials_exception
+
+# ---------------- Models ----------------
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-class TokenData(BaseModel):
-    user_id: str
 
 class UserSignup(BaseModel):
     name: str
@@ -42,17 +55,22 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-class AccountCreate(BaseModel):
+class AccountBase(BaseModel):
     name: str
     type: str
     balance: float
 
-class Account(AccountCreate):
+class AccountUpdate(BaseModel):
+    name: Optional[str]
+    type: Optional[str]
+    balance: Optional[float]
+
+class Account(AccountBase):
     id: str
     user_id: str
     created_at: str
 
-class TransactionCreate(BaseModel):
+class TransactionBase(BaseModel):
     account_id: str
     type: str
     amount: float
@@ -60,43 +78,44 @@ class TransactionCreate(BaseModel):
     description: str
     date: str
 
-class Transaction(TransactionCreate):
+class TransactionUpdate(BaseModel):
+    account_id: Optional[str]
+    type: Optional[str]
+    amount: Optional[float]
+    category: Optional[str]
+    description: Optional[str]
+    date: Optional[str]
+
+class Transaction(TransactionBase):
     id: str
     user_id: str
     created_at: str
 
-class GoalCreate(BaseModel):
+class GoalBase(BaseModel):
     name: str
     target_amount: float
     current_amount: float = 0
     deadline: str
 
-class Goal(GoalCreate):
+class GoalUpdate(BaseModel):
+    name: Optional[str]
+    target_amount: Optional[float]
+    current_amount: Optional[float]
+    deadline: Optional[str]
+
+class Goal(GoalBase):
     id: str
     user_id: str
     created_at: str
 
-# ---------------- AUTH HELPERS ----------------
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+# ---------------- Router ----------------
+api_router = APIRouter(tags=["BudgetIQ"])
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(user_id: str):
-    expire = datetime.now(timezone.utc) + timedelta(days=7)
-    payload = {"user_id": user_id, "exp": expire}
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-async def get_current_user(token: str = Depends(lambda: None)) -> TokenData:
-    # For demo/testing: replace with real oauth2_scheme dependency in production
-    return TokenData(user_id="test_user")
-
-# ---------------- AUTH ----------------
+# ---------------- Auth Endpoints ----------------
 @api_router.post("/auth/signup", response_model=Token)
 async def signup(user: UserSignup):
-    existing = await get_user_by_email(user.email)
-    if existing:
+    existing = supabase.table("users").select("*").eq("email", user.email).execute()
+    if existing.data and len(existing.data) > 0:
         raise HTTPException(status_code=400, detail="Email already registered")
     user_data = {
         "id": str(uuid.uuid4()),
@@ -105,83 +124,128 @@ async def signup(user: UserSignup):
         "password": hash_password(user.password),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    await create_user(user.email, user_data["password"])
+    supabase.table("users").insert(user_data).execute()
     token = create_access_token(user_data["id"])
     return {"access_token": token}
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
-    db_user = await get_user_by_email(user.email)
-    if not db_user or not verify_password(user.password, db_user["password"]):
+    result = supabase.table("users").select("*").eq("email", user.email).execute()
+    if not result.data or len(result.data) == 0:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    db_user = result.data[0]
+    if not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token(db_user["id"])
     return {"access_token": token}
 
-# ---------------- ACCOUNTS ----------------
+@api_router.get("/auth/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    result = supabase.table("users").select("id,name,email,created_at").eq("id", current_user["user_id"]).execute()
+    if not result.data or len(result.data) == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result.data[0]
+
+# ---------------- Accounts ----------------
 @api_router.post("/accounts", response_model=Account)
-async def create_account_endpoint(account: AccountCreate, current_user: TokenData = Depends(get_current_user)):
+async def create_account(account: AccountBase, current_user: dict = Depends(get_current_user)):
     data = account.dict()
-    data.update({"id": str(uuid.uuid4()), "user_id": current_user.user_id, "created_at": datetime.now(timezone.utc).isoformat()})
-    await create_account(data)
+    data.update({"id": str(uuid.uuid4()), "user_id": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
+    supabase.table("accounts").insert(data).execute()
     return data
 
 @api_router.get("/accounts", response_model=List[Account])
-async def get_accounts_endpoint(current_user: TokenData = Depends(get_current_user)):
-    return await get_user_accounts(current_user.user_id)
+async def get_accounts(current_user: dict = Depends(get_current_user)):
+    result = supabase.table("accounts").select("*").eq("user_id", current_user["user_id"]).execute()
+    return result.data
 
-# ---------------- TRANSACTIONS ----------------
+@api_router.put("/accounts/{account_id}", response_model=Account)
+async def update_account(account_id: str, account: AccountUpdate, current_user: dict = Depends(get_current_user)):
+    existing = supabase.table("accounts").select("*").eq("id", account_id).eq("user_id", current_user["user_id"]).execute()
+    if not existing.data or len(existing.data) == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    updated_data = {k:v for k,v in account.dict().items() if v is not None}
+    supabase.table("accounts").update(updated_data).eq("id", account_id).execute()
+    return {**existing.data[0], **updated_data}
+
+@api_router.delete("/accounts/{account_id}")
+async def delete_account(account_id: str, current_user: dict = Depends(get_current_user)):
+    supabase.table("accounts").delete().eq("id", account_id).eq("user_id", current_user["user_id"]).execute()
+    return {"detail": "Account deleted"}
+
+# ---------------- Transactions ----------------
 @api_router.post("/transactions", response_model=Transaction)
-async def create_transaction(transaction: TransactionCreate, current_user: TokenData = Depends(get_current_user)):
+async def create_transaction(transaction: TransactionBase, current_user: dict = Depends(get_current_user)):
     data = transaction.dict()
-    data.update({"id": str(uuid.uuid4()), "user_id": current_user.user_id, "created_at": datetime.now(timezone.utc).isoformat()})
+    data.update({"id": str(uuid.uuid4()), "user_id": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
     supabase.table("transactions").insert(data).execute()
     return data
 
 @api_router.get("/transactions", response_model=List[Transaction])
-async def get_transactions(current_user: TokenData = Depends(get_current_user)):
-    result = supabase.table("transactions").select("*").eq("user_id", current_user.user_id).execute()
+async def get_transactions(current_user: dict = Depends(get_current_user)):
+    result = supabase.table("transactions").select("*").eq("user_id", current_user["user_id"]).execute()
     return result.data
 
-# ---------------- GOALS ----------------
+@api_router.put("/transactions/{transaction_id}", response_model=Transaction)
+async def update_transaction(transaction_id: str, transaction: TransactionUpdate, current_user: dict = Depends(get_current_user)):
+    existing = supabase.table("transactions").select("*").eq("id", transaction_id).eq("user_id", current_user["user_id"]).execute()
+    if not existing.data or len(existing.data) == 0:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    updated_data = {k:v for k,v in transaction.dict().items() if v is not None}
+    supabase.table("transactions").update(updated_data).eq("id", transaction_id).execute()
+    return {**existing.data[0], **updated_data}
+
+@api_router.delete("/transactions/{transaction_id}")
+async def delete_transaction(transaction_id: str, current_user: dict = Depends(get_current_user)):
+    supabase.table("transactions").delete().eq("id", transaction_id).eq("user_id", current_user["user_id"]).execute()
+    return {"detail": "Transaction deleted"}
+
+# ---------------- Goals ----------------
 @api_router.post("/goals", response_model=Goal)
-async def create_goal(goal: GoalCreate, current_user: TokenData = Depends(get_current_user)):
+async def create_goal(goal: GoalBase, current_user: dict = Depends(get_current_user)):
     data = goal.dict()
-    data.update({"id": str(uuid.uuid4()), "user_id": current_user.user_id, "created_at": datetime.now(timezone.utc).isoformat()})
+    data.update({"id": str(uuid.uuid4()), "user_id": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
     supabase.table("goals").insert(data).execute()
     return data
 
 @api_router.get("/goals", response_model=List[Goal])
-async def get_goals(current_user: TokenData = Depends(get_current_user)):
-    result = supabase.table("goals").select("*").eq("user_id", current_user.user_id).execute()
+async def get_goals(current_user: dict = Depends(get_current_user)):
+    result = supabase.table("goals").select("*").eq("user_id", current_user["user_id"]).execute()
     return result.data
 
-# ---------------- AI INSIGHTS ----------------
+@api_router.put("/goals/{goal_id}", response_model=Goal)
+async def update_goal(goal_id: str, goal: GoalUpdate, current_user: dict = Depends(get_current_user)):
+    existing = supabase.table("goals").select("*").eq("id", goal_id).eq("user_id", current_user["user_id"]).execute()
+    if not existing.data or len(existing.data) == 0:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    updated_data = {k:v for k,v in goal.dict().items() if v is not None}
+    supabase.table("goals").update(updated_data).eq("id", goal_id).execute()
+    return {**existing.data[0], **updated_data}
+
+@api_router.delete("/goals/{goal_id}")
+async def delete_goal(goal_id: str, current_user: dict = Depends(get_current_user)):
+    supabase.table("goals").delete().eq("id", goal_id).eq("user_id", current_user["user_id"]).execute()
+    return {"detail": "Goal deleted"}
+
+# ---------------- AI Insights ----------------
 @api_router.get("/insights/prediction")
-async def get_prediction(current_user: TokenData = Depends(get_current_user)):
-    transactions = supabase.table("transactions").select("*").eq("user_id", current_user.user_id).execute().data
-    if len(transactions) < 3:
-        return {"predicted_amount": 0, "confidence": "low", "trend": "insufficient_data"}
-    monthly_expenses = defaultdict(float)
-    for t in transactions:
-        if t["type"] == "expense":
-            date = datetime.fromisoformat(t["date"])
-            month_key = f"{date.year}-{date.month:02d}"
-            monthly_expenses[month_key] += t["amount"]
-    sorted_months = sorted(monthly_expenses.items())
-    expenses = [expense for _, expense in sorted_months]
-    x = np.arange(len(expenses))
-    y = np.array(expenses)
-    slope = np.sum((x - np.mean(x)) * (y - np.mean(y))) / np.sum((x - np.mean(x)) ** 2)
-    intercept = np.mean(y) - slope * np.mean(x)
-    predicted = max(0, slope * len(expenses) + intercept)
-    trend = "increasing" if slope > 50 else "decreasing" if slope < -50 else "stable"
-    confidence = "high" if len(expenses) >= 6 else "medium" if len(expenses) >= 4 else "low"
-    return {"predicted_amount": round(predicted,2), "confidence": confidence, "trend": trend, "historical_average": round(np.mean(y),2)}
+async def get_prediction(current_user: dict = Depends(get_current_user)):
+    # Dummy prediction logic
+    return {"prediction": np.random.rand() * 1000}
 
 @api_router.get("/insights/score")
-async def get_score(current_user: TokenData = Depends(get_current_user)):
-    # Example: simple financial score
-    accounts = supabase.table("accounts").select("*").eq("user_id", current_user.user_id).execute().data
-    balance_total = sum([a["balance"] for a in accounts])
-    score = min(max(int(balance_total/1000 * 10),0),100)
-    return {"financial_score": score}
+async def get_financial_score(current_user: dict = Depends(get_current_user)):
+    # Dummy scoring logic
+    return {"score": np.random.randint(0, 100)}
+
+# ---------------- Dashboard ----------------
+@api_router.get("/dashboard/summary")
+async def dashboard_summary(current_user: dict = Depends(get_current_user)):
+    accounts = supabase.table("accounts").select("*").eq("user_id", current_user["user_id"]).execute().data
+    transactions = supabase.table("transactions").select("*").eq("user_id", current_user["user_id"]).execute().data
+    goals = supabase.table("goals").select("*").eq("user_id", current_user["user_id"]).execute().data
+    return {
+        "accounts_count": len(accounts) if accounts else 0,
+        "transactions_count": len(transactions) if transactions else 0,
+        "goals_count": len(goals) if goals else 0
+    }
