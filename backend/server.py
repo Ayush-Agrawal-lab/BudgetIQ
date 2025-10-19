@@ -1,4 +1,3 @@
-# server.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
@@ -14,18 +13,24 @@ logger = logging.getLogger(__name__)
 # ---------------- LIFESPAN ----------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_database()
-    logger.info("✅ BudgetIQ API started with Supabase")
-    logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
-    logger.info(f"Supabase URL: {settings.SUPABASE_URL}")
-    yield
-    logger.info("👋 BudgetIQ API shutdown")
+    try:
+        await init_database()
+        logger.info("✅ BudgetIQ API started with Supabase")
+        logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
+        logger.info(f"Supabase URL: {settings.SUPABASE_URL}")
+        yield
+    finally:
+        logger.info("👋 BudgetIQ API shutdown")
 
 # ---------------- FASTAPI APP ----------------
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
 
 # ---------------- CORS ----------------
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o]
+# Ensure frontend origin is included
+if "https://ayush-agrawal-lab.github.io" not in origins:
+    origins.append("https://ayush-agrawal-lab.github.io")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -35,7 +40,7 @@ app.add_middleware(
 )
 
 # ---------------- ROUTER ----------------
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 
 # ---------------- HEALTH CHECK ----------------
 @app.get("/health")
