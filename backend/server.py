@@ -5,7 +5,6 @@ from app import api_router, init_database
 from datetime import datetime, timezone
 import logging
 from contextlib import asynccontextmanager
-import os
 
 # ---------------- LOGGING ----------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,10 +15,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     await init_database()
     logger.info("✅ BudgetIQ API started with Supabase")
-    logger.info(f"Environment: {settings.ENV}")
     logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
     logger.info(f"Supabase URL: {settings.SUPABASE_URL}")
-    logger.info(f"API Docs: {settings.API_URL}/docs")
     yield
     logger.info("👋 BudgetIQ API shutdown")
 
