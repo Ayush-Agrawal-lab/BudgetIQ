@@ -5,7 +5,7 @@ from typing import List, Optional
 import uuid
 import jwt
 from passlib.context import CryptContext
-from .services import supabase_service as supabase
+from services import supabase_service as supabase
 from config import settings
 from fastapi.security import OAuth2PasswordBearer
 from collections import defaultdict
