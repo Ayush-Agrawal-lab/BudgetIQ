@@ -1,6 +1,5 @@
 import asyncio
 import httpx
-import json
 from datetime import datetime
 
 async def test_full_integration(backend_url: str = "http://localhost:8000"):
@@ -8,7 +7,9 @@ async def test_full_integration(backend_url: str = "http://localhost:8000"):
         print("\n🔄 Testing Full Stack Integration")
         print("=================================")
 
-        # Test 1: Authentication
+        # ----------------------
+        # 1️⃣ Authentication Flow
+        # ----------------------
         print("\n1. Testing Authentication Flow")
         try:
             # Signup
@@ -17,26 +18,30 @@ async def test_full_integration(backend_url: str = "http://localhost:8000"):
                 "password": "testpassword123"
             }
             signup_response = await client.post(f"{backend_url}/api/auth/signup", json=signup_data)
-            print("✅ Signup:", signup_response.status_code == 200)
-            
-            token = signup_response.json().get("access_token")
-            headers = {"Authorization": f"Bearer {token}"}
+            signup_response.raise_for_status()
+            print("✅ Signup successful")
 
             # Login
             login_data = {
-                "username": "test@example.com",
+                "email": "test@example.com",
                 "password": "testpassword123"
             }
-            login_response = await client.post(f"{backend_url}/api/auth/login", data=login_data)
-            print("✅ Login:", login_response.status_code == 200)
+            login_response = await client.post(f"{backend_url}/api/auth/login", json=login_data)
+            login_response.raise_for_status()
+            print("✅ Login successful")
+
+            token = login_response.json().get("access_token")
+            headers = {"Authorization": f"Bearer {token}"}
 
         except Exception as e:
             print("❌ Authentication Error:", str(e))
+            return
 
-        # Test 2: Account Management
+        # ----------------------
+        # 2️⃣ Account Management
+        # ----------------------
         print("\n2. Testing Account Management")
         try:
-            # Create Account
             account_data = {
                 "name": "Test Account",
                 "type": "savings",
@@ -47,51 +52,58 @@ async def test_full_integration(backend_url: str = "http://localhost:8000"):
                 json=account_data,
                 headers=headers
             )
-            print("✅ Create Account:", create_account_response.status_code == 200)
-            
-            # Get Accounts
+            create_account_response.raise_for_status()
+            print("✅ Create Account successful")
+            account_id = create_account_response.json().get("id")
+
             get_accounts_response = await client.get(
                 f"{backend_url}/api/accounts",
                 headers=headers
             )
-            print("✅ Get Accounts:", get_accounts_response.status_code == 200)
+            get_accounts_response.raise_for_status()
+            print("✅ Get Accounts successful")
 
         except Exception as e:
             print("❌ Account Management Error:", str(e))
+            return
 
-        # Test 3: Transactions
+        # ----------------------
+        # 3️⃣ Transactions
+        # ----------------------
         print("\n3. Testing Transactions")
         try:
-            # Create Transaction
             transaction_data = {
                 "amount": 100.0,
                 "type": "expense",
                 "category": "groceries",
                 "description": "Test transaction",
                 "date": datetime.now().isoformat(),
-                "account_id": "1"
+                "account_id": account_id  # Use created account ID
             }
             create_transaction_response = await client.post(
                 f"{backend_url}/api/transactions",
                 json=transaction_data,
                 headers=headers
             )
-            print("✅ Create Transaction:", create_transaction_response.status_code == 200)
-            
-            # Get Transactions
+            create_transaction_response.raise_for_status()
+            print("✅ Create Transaction successful")
+
             get_transactions_response = await client.get(
                 f"{backend_url}/api/transactions",
                 headers=headers
             )
-            print("✅ Get Transactions:", get_transactions_response.status_code == 200)
+            get_transactions_response.raise_for_status()
+            print("✅ Get Transactions successful")
 
         except Exception as e:
             print("❌ Transactions Error:", str(e))
+            return
 
-        # Test 4: Goals
+        # ----------------------
+        # 4️⃣ Goals
+        # ----------------------
         print("\n4. Testing Goals")
         try:
-            # Create Goal
             goal_data = {
                 "name": "Test Goal",
                 "target_amount": 5000.0,
@@ -102,49 +114,60 @@ async def test_full_integration(backend_url: str = "http://localhost:8000"):
                 json=goal_data,
                 headers=headers
             )
-            print("✅ Create Goal:", create_goal_response.status_code == 200)
-            
-            # Get Goals
+            create_goal_response.raise_for_status()
+            print("✅ Create Goal successful")
+
             get_goals_response = await client.get(
                 f"{backend_url}/api/goals",
                 headers=headers
             )
-            print("✅ Get Goals:", get_goals_response.status_code == 200)
+            get_goals_response.raise_for_status()
+            print("✅ Get Goals successful")
 
         except Exception as e:
             print("❌ Goals Error:", str(e))
+            return
 
-        # Test 5: AI Insights
+        # ----------------------
+        # 5️⃣ AI Insights
+        # ----------------------
         print("\n5. Testing AI Insights")
         try:
-            # Get Prediction
             prediction_response = await client.get(
                 f"{backend_url}/api/insights/prediction",
                 headers=headers
             )
-            print("✅ Get Prediction:", prediction_response.status_code == 200)
-            
-            # Get Financial Score
+            prediction_response.raise_for_status()
+            print("✅ Get Prediction successful")
+
             score_response = await client.get(
                 f"{backend_url}/api/insights/score",
                 headers=headers
             )
-            print("✅ Get Financial Score:", score_response.status_code == 200)
+            score_response.raise_for_status()
+            print("✅ Get Financial Score successful")
 
         except Exception as e:
             print("❌ AI Insights Error:", str(e))
+            return
 
-        # Test 6: Dashboard
+        # ----------------------
+        # 6️⃣ Dashboard
+        # ----------------------
         print("\n6. Testing Dashboard")
         try:
             dashboard_response = await client.get(
                 f"{backend_url}/api/dashboard/summary",
                 headers=headers
             )
-            print("✅ Get Dashboard Summary:", dashboard_response.status_code == 200)
+            dashboard_response.raise_for_status()
+            print("✅ Get Dashboard Summary successful")
 
         except Exception as e:
             print("❌ Dashboard Error:", str(e))
+            return
+
+        print("\n🎉 All tests completed successfully!")
 
 if __name__ == "__main__":
     asyncio.run(test_full_integration())
