@@ -1,3 +1,4 @@
+# server.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
@@ -44,3 +45,14 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": settings.APP_VERSION
     }
+
+# ---------------- MAIN ENTRY ----------------
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "server:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
