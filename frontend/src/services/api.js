@@ -73,7 +73,6 @@ api.interceptors.response.use(
 
     console.error('API Error:', error.message);
 
-    // Friendly alert for SSL/Network issues
     if (
       error.code === 'ERR_NETWORK' ||
       error.message.includes('certificate') ||
@@ -93,21 +92,21 @@ api.interceptors.response.use(
 // Auth APIs
 // ---------------------------
 export const auth = {
-  signup: async (email, password) => {
-    const response = await api.post('/api/auth/signup', { email, password });
-    localStorage.setItem('token', response.data.access_token);
-    return response.data;
+  signup: async (name, email, password) => {
+    const response = await api.post('/api/auth/signup', { name, email, password });
+    return response.data; // { access_token }
   },
 
   login: async (email, password) => {
     const response = await api.post('/api/auth/login', { email, password });
-    localStorage.setItem('token', response.data.access_token);
-    return response.data;
+    return response.data; // { access_token }
   },
 
-  getProfile: async () => {
-    const response = await api.get('/api/auth/me');
-    return response.data;
+  getProfile: async (token) => {
+    const response = await api.get('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data; // { id, name, email }
   },
 
   logout: () => {
@@ -119,86 +118,44 @@ export const auth = {
 // Accounts APIs
 // ---------------------------
 export const accounts = {
-  getAll: async () => {
-    const response = await api.get('/api/accounts');
-    return response.data;
-  },
-  create: async (accountData) => {
-    const response = await api.post('/api/accounts', accountData);
-    return response.data;
-  },
-  delete: async (accountId) => {
-    const response = await api.delete(`/api/accounts/${accountId}`);
-    return response.data;
-  },
+  getAll: async () => (await api.get('/api/accounts')).data,
+  create: async (accountData) => (await api.post('/api/accounts', accountData)).data,
+  delete: async (accountId) => (await api.delete(`/api/accounts/${accountId}`)).data,
 };
 
 // ---------------------------
 // Transactions APIs
 // ---------------------------
 export const transactions = {
-  getAll: async () => {
-    const response = await api.get('/api/transactions');
-    return response.data;
-  },
-  create: async (transactionData) => {
-    const response = await api.post('/api/transactions', transactionData);
-    return response.data;
-  },
-  delete: async (transactionId) => {
-    const response = await api.delete(`/api/transactions/${transactionId}`);
-    return response.data;
-  },
+  getAll: async () => (await api.get('/api/transactions')).data,
+  create: async (transactionData) => (await api.post('/api/transactions', transactionData)).data,
+  delete: async (transactionId) => (await api.delete(`/api/transactions/${transactionId}`)).data,
 };
 
 // ---------------------------
 // Goals APIs
 // ---------------------------
 export const goals = {
-  getAll: async () => {
-    const response = await api.get('/api/goals');
-    return response.data;
-  },
-  create: async (goalData) => {
-    const response = await api.post('/api/goals', goalData);
-    return response.data;
-  },
-  update: async (goalId, goalData) => {
-    const response = await api.put(`/api/goals/${goalId}`, goalData);
-    return response.data;
-  },
-  delete: async (goalId) => {
-    const response = await api.delete(`/api/goals/${goalId}`);
-    return response.data;
-  },
+  getAll: async () => (await api.get('/api/goals')).data,
+  create: async (goalData) => (await api.post('/api/goals', goalData)).data,
+  update: async (goalId, goalData) => (await api.put(`/api/goals/${goalId}`, goalData)).data,
+  delete: async (goalId) => (await api.delete(`/api/goals/${goalId}`)).data,
 };
 
 // ---------------------------
 // AI Insights APIs
 // ---------------------------
 export const insights = {
-  getPrediction: async () => {
-    const response = await api.get('/api/insights/prediction');
-    return response.data;
-  },
-  getTips: async () => {
-    const response = await api.get('/api/insights/tips');
-    return response.data;
-  },
-  getScore: async () => {
-    const response = await api.get('/api/insights/score');
-    return response.data;
-  },
+  getPrediction: async () => (await api.get('/api/insights/prediction')).data,
+  getTips: async () => (await api.get('/api/insights/tips')).data,
+  getScore: async () => (await api.get('/api/insights/score')).data,
 };
 
 // ---------------------------
 // Dashboard APIs
 // ---------------------------
 export const dashboard = {
-  getSummary: async () => {
-    const response = await api.get('/api/dashboard/summary');
-    return response.data;
-  },
+  getSummary: async () => (await api.get('/api/dashboard/summary')).data,
 };
 
 export default api;

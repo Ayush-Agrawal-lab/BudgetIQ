@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        const userData = await auth.getProfile();
+        const userData = await auth.getProfile(token); // pass token
         setUser(userData);
       }
     } catch (error) {
@@ -30,9 +30,13 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const { access_token, user: userData } = await auth.login(email, password);
-      localStorage.setItem('token', access_token);
+      const res = await auth.login(email, password); // { access_token }
+      const token = res.access_token;
+      localStorage.setItem('token', token);
+
+      const userData = await auth.getProfile(token);
       setUser(userData);
+
       toast({
         title: "Login Successful",
         description: "Welcome back!",
@@ -41,18 +45,22 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       toast({
         title: "Login Failed",
-        description: error.response?.data?.message || "Please check your credentials",
+        description: error.response?.data?.detail || "Please check your credentials",
         variant: "destructive",
       });
       return false;
     }
   };
 
-  const signup = async (email, password) => {
+  const signup = async (name, email, password) => {
     try {
-      const { access_token, user: userData } = await auth.signup(email, password);
-      localStorage.setItem('token', access_token);
+      const res = await auth.signup(name, email, password); // { access_token }
+      const token = res.access_token;
+      localStorage.setItem('token', token);
+
+      const userData = await auth.getProfile(token);
       setUser(userData);
+
       toast({
         title: "Account Created",
         description: "Welcome to BudgetIQ!",
@@ -61,7 +69,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       toast({
         title: "Signup Failed",
-        description: error.response?.data?.message || "Please try again",
+        description: error.response?.data?.detail || "Please try again",
         variant: "destructive",
       });
       return false;
