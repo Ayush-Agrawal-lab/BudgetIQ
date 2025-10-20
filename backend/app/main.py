@@ -105,7 +105,7 @@ def create_access_token(user_id: str):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 # ---------------- AUTH DEPENDENCY ----------------
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> TokenData:
     credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
@@ -145,6 +145,13 @@ async def login(user: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token(db_user["id"])
     return {"access_token": token}
+
+@api_router.get("/auth/me")
+async def get_current_user_profile(current_user: TokenData = Depends(get_current_user)):
+    result = supabase.supabase.table("users").select("id,name,email,created_at").eq("id", current_user.user_id).execute()
+    if not result.data or len(result.data) == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result.data[0]
 
 # ---------------- ACCOUNTS ----------------
 @api_router.post("/accounts", response_model=Account)
