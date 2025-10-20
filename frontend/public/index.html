@@ -10,14 +10,13 @@
     />
     <title>BudgetIQ</title>
 
-    <!-- ✅ Your app CSS (replace filename after build) -->
-    <link rel="stylesheet" href="./src/App.css" />
+    <!-- Load rrweb before the app bundle in built index.html -->
+    <script src="https://cdn.rrweb.io/latest/rrweb.min.js"></script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
 
-    <!-- ✅ Your bundled React app -->
-    <script defer src="./src/App.js"></script>
+    <!-- Bundled React app will be injected here during build -->
   </body>
 </html>
