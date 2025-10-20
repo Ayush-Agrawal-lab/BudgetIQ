@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/css/main.6dca653e.css",
-    "main.js": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/main.1544dd1d.js",
+    "main.js": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/main.bf0f138f.js",
     "static/js/workbox-6b5f7863.js": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/workbox-6b5f7863.js",
     "static/js/service-worker.js": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/service-worker.js",
     "service-worker.js": "https://ayush-agrawal-lab.github.io/BudgetIQ/service-worker.js",
     "index.html": "https://ayush-agrawal-lab.github.io/BudgetIQ/index.html",
     "main.6dca653e.css.map": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/css/main.6dca653e.css.map",
-    "main.1544dd1d.js.map": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/main.1544dd1d.js.map"
+    "main.bf0f138f.js.map": "https://ayush-agrawal-lab.github.io/BudgetIQ/static/js/main.bf0f138f.js.map"
   },
   "entrypoints": [
     "static/css/main.6dca653e.css",
-    "static/js/main.1544dd1d.js"
+    "static/js/main.bf0f138f.js"
   ]
 }

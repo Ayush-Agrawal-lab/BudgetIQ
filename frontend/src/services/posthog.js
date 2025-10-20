@@ -5,7 +5,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // PostHog configuration with proper CORS settings
 if (isProduction) {
-  posthog.init(process.env.REACT_APP_POSTHOG_KEY || 'your-project-api-key-here', {
+  posthog.init(process.env.REACT_APP_POSTHOG_KEY || '', {
     api_host: 'https://us.i.posthog.com',
     loaded: (posthog) => {
       // Add additional configuration if needed
