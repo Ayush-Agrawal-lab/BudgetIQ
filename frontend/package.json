@@ -2,7 +2,7 @@
   "name": "budgetiq",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://ayush-agrawal-lab.github.io/BudgetIQ",
+  "homepage": ".",
   "description": "A smart personal finance management application - College Project",
   "author": "Ayush Agrawal",
   "dependencies": {
