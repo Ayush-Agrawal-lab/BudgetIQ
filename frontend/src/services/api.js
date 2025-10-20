@@ -165,19 +165,29 @@ api.interceptors.response.use(
 export const auth = {
   signup: async (name, email, password) => {
     const response = await api.post('/api/auth/signup', { name, email, password });
-    return response.data; // { access_token }
+    // response.data may include { access_token, user }
+    return response.data;
   },
 
   login: async (email, password) => {
     const response = await api.post('/api/auth/login', { email, password });
-    return response.data; // { access_token }
+    // response.data may include { access_token, user }
+    return response.data;
   },
 
   getProfile: async (token) => {
-    const response = await api.get('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data; // { id, name, email }
+    try {
+      const response = await api.get('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data; // { id, name, email }
+    } catch (err) {
+      // If /me is not implemented on server, return null instead of throwing
+      if (err.response?.status === 404) {
+        return null;
+      }
+      throw err;
+    }
   },
 
   logout: () => {
