@@ -10,9 +10,19 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 // ---------------------------
 function rrEmitNetworkEvent(eventData) {
   if (window.__rr && typeof window.__rr.addCustomEvent === 'function') {
+    const safeStringify = (data) => {
+      try {
+        return typeof data === 'undefined' ? '{}' : JSON.stringify(data);
+      } catch (e) {
+        return '{}';
+      }
+    };
+
     window.__rr.addCustomEvent('network', {
       ...eventData,
       timestamp: Date.now(),
+      requestBody: typeof eventData.requestBody === 'string' ? eventData.requestBody : safeStringify(eventData.requestBody),
+      responseBody: typeof eventData.responseBody === 'string' ? eventData.responseBody : safeStringify(eventData.responseBody)
     });
   }
 }
@@ -56,12 +66,14 @@ api.interceptors.response.use(
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
-      responseBody: JSON.stringify(response.data || {}),
+      responseBody: response.data
     });
     return response;
   },
   (error) => {
     const config = error.config || {};
+    
+    // Safe event logging
     rrEmitNetworkEvent({
       phase: 'error',
       api: 'axios',
@@ -69,19 +81,34 @@ api.interceptors.response.use(
       method: config.method,
       message: error.message,
       stack: error.stack || '',
+      status: error.response?.status,
+      statusText: error.response?.statusText
     });
 
-    console.error('API Error:', error.message);
-
-    if (
-      error.code === 'ERR_NETWORK' ||
-      error.message.includes('certificate') ||
-      error.message.includes('Network Error')
-    ) {
-      alert(
-        `Network/SSL error while calling API: ${config.url}\n` +
-          `Check your backend URL and SSL certificate.`
-      );
+    // Handle different types of errors
+    if (error.response) {
+      // Server responded with error status
+      console.error(`API Error ${error.response.status}:`, error.response.data);
+      
+      if (error.response.status === 401) {
+        // Authentication error
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/auth';
+      }
+    } else if (error.request) {
+      // Request was made but no response
+      console.error('Network Error:', error.message);
+      if (
+        error.code === 'ERR_NETWORK' ||
+        error.message.includes('certificate') ||
+        error.message.includes('Network Error')
+      ) {
+        console.error(`Network/SSL error while calling API: ${config.url}`);
+      }
+    } else {
+      // Error in request setup
+      console.error('Request Setup Error:', error.message);
     }
 
     return Promise.reject(error);
