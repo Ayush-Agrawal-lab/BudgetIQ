@@ -252,11 +252,16 @@ function AuthPage({ onLogin }) {
       
       const response = await axios.post(`${API_URL}${endpoint}`, payload);
       
-      if (!response.data.token || !response.data.user) {
+      if (!response.data.access_token) {
         throw new Error('Invalid response from server');
       }
       
-      await onLogin(response.data.token, response.data.user);
+      // Get user profile after login
+      const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${response.data.access_token}` }
+      });
+      
+      await onLogin(response.data.access_token, userResponse.data);
       navigate('/dashboard');
     } catch (err) {
       console.error('Auth error:', err);
@@ -440,18 +445,59 @@ function Dashboard({ token }) {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    
+    // Listen for dashboard updates
+    const handleUpdate = () => {
+      fetchDashboardData();
+    };
+    window.addEventListener('dashboard-update', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('dashboard-update', handleUpdate);
+    };
+  }, [token]); // Add token as dependency to re-fetch when it changes
 
   const fetchDashboardData = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [summaryRes, predictionRes, scoreRes, goalsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/dashboard/summary`, { headers }),
+
+      // First fetch accounts and transactions to calculate summary
+      const [accountsRes, transactionsRes] = await Promise.all([
+        axios.get(`${API_URL}/api/accounts`, { headers }),
+        axios.get(`${API_URL}/api/transactions`, { headers })
+      ]);
+
+      // Calculate summary from transactions
+      const transactions = transactionsRes.data;
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalSavings = totalIncome - totalExpense;
+
+      // Calculate monthly trend
+      const monthlyTrend = calculateMonthlyTrend(transactions);
+
+      // Calculate category breakdown
+      const categoryBreakdown = calculateCategoryBreakdown(transactions);
+
+      setSummary({
+        total_income: totalIncome,
+        total_expense: totalExpense,
+        total_savings: totalSavings,
+        monthly_trend: monthlyTrend,
+        category_breakdown: categoryBreakdown
+      });
+
+      // Fetch other data
+      const [predictionRes, scoreRes, goalsRes] = await Promise.all([
         axios.get(`${API_URL}/api/insights/prediction`, { headers }),
         axios.get(`${API_URL}/api/insights/score`, { headers }),
         axios.get(`${API_URL}/api/goals`, { headers }),
       ]);
-      setSummary(summaryRes.data);
+
       setPrediction(predictionRes.data);
       setScore(scoreRes.data.score);
       setGoals(goalsRes.data);
@@ -460,6 +506,47 @@ function Dashboard({ token }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to calculate monthly trend
+  const calculateMonthlyTrend = (transactions) => {
+    const monthlyData = {};
+    
+    transactions.forEach(txn => {
+      const month = txn.date.substring(0, 7); // Get YYYY-MM
+      if (!monthlyData[month]) {
+        monthlyData[month] = { income: 0, expense: 0 };
+      }
+      if (txn.type === 'income') {
+        monthlyData[month].income += parseFloat(txn.amount);
+      } else {
+        monthlyData[month].expense += parseFloat(txn.amount);
+      }
+    });
+
+    return Object.entries(monthlyData)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        month,
+        income: data.income,
+        expense: data.expense
+      }));
+  };
+
+  // Helper function to calculate category breakdown
+  const calculateCategoryBreakdown = (transactions) => {
+    const breakdown = {};
+    
+    transactions
+      .filter(txn => txn.type === 'expense')
+      .forEach(txn => {
+        if (!breakdown[txn.category]) {
+          breakdown[txn.category] = 0;
+        }
+        breakdown[txn.category] += parseFloat(txn.amount);
+      });
+
+    return breakdown;
   };
 
   if (loading) {
@@ -1134,12 +1221,24 @@ function QuickAddFAB({ token }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validate form data
+      if (!formData.account_id) {
+        alert('Please select an account');
+        return;
+      }
+      if (!formData.amount || formData.amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+      }
+
       await axios.post(`${API_URL}/api/transactions`, {
         ...formData,
         amount: parseFloat(formData.amount)
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
+      // Reset form
       setIsOpen(false);
       setFormData({
         account_id: accounts[0]?.id || '',
@@ -1149,9 +1248,20 @@ function QuickAddFAB({ token }) {
         description: '',
         date: new Date().toISOString().split('T')[0]
       });
-      window.location.reload();
+
+      // Show success message
+      alert('Transaction added successfully!');
+
+      // Refresh the current page component instead of full page reload
+      const currentPath = window.location.pathname;
+      if (currentPath === '/dashboard') {
+        window.dispatchEvent(new CustomEvent('dashboard-update'));
+      } else if (currentPath === '/transactions') {
+        window.dispatchEvent(new CustomEvent('transactions-update'));
+      }
     } catch (error) {
       console.error('Error adding transaction:', error);
+      alert('Error adding transaction: ' + (error.response?.data?.detail || 'Please try again'));
     }
   };
 
