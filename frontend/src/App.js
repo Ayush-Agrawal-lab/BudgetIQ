@@ -116,22 +116,23 @@ function App() {
 
   const handleLogin = async (token, user) => {
     try {
+      // Store token locally
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
       setToken(token);
-      setUser(user);
-      
-      // Verify the token immediately
-      const response = await axios.get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update user data with full profile
-      const userData = response.data;
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+
+      // If backend returned a user object, persist it. If not, keep user null and
+      // avoid calling /api/auth/me here (the server may not expose it).
+      if (user) {
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+      } else {
+        // Clear any stale user but keep token so app can function.
+        localStorage.removeItem('user');
+        setUser(null);
+      }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Login state setup failed:', error);
+      // On failure to store token locally, clear state to avoid inconsistent behavior
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setToken(null);
