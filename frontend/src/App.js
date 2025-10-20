@@ -54,11 +54,12 @@ function App() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount
+  // Check authentication status on mount.
+  // Only call /api/auth/me when we have a token but no user stored locally.
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (token) {
+        if (token && !user) {
           const response = await axios.get(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -83,7 +84,7 @@ function App() {
       }
     };
     checkAuth();
-  }, [token]);
+  }, [token, user]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -365,13 +366,21 @@ function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Verify authentication on dashboard mount
+    // Verify authentication on dashboard mount.
+    // If a `user` object is already present (from login/signup), skip calling /me.
     const verifyAuth = async () => {
       try {
         if (!token) {
           navigate('/auth');
           return;
         }
+
+        if (user) {
+          // We have token and user info locally — assume authenticated.
+          return;
+        }
+
+        // Only call /api/auth/me if we don't already have the user object.
         const response = await axios.get(`${API_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -385,7 +394,7 @@ function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme
       }
     };
     verifyAuth();
-  }, [token, navigate, onLogout]);
+  }, [token, user, navigate, onLogout]);
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
