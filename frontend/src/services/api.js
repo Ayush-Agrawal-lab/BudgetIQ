@@ -35,6 +35,13 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Add timeout
+  timeout: 15000,
+  // Add retry logic
+  retry: 3,
+  retryDelay: (retryCount) => {
+    return retryCount * 1000; // time interval between retries
+  }
 });
 
 // Add JWT token automatically if available

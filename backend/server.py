@@ -26,12 +26,21 @@ origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o]
 if "https://ayush-agrawal-lab.github.io" not in origins:
     origins.append("https://ayush-agrawal-lab.github.io")
 
+# Add specific methods and headers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "X-Requested-With"
+    ],
+    expose_headers=["Content-Length"],
+    max_age=600  # Cache preflight requests for 10 minutes
 )
 
 # Include router
