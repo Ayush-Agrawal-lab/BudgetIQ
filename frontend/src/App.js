@@ -65,11 +65,19 @@ function App() {
           setUser(response.data);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
+        // Only treat 401 as invalid credentials. Other errors (e.g. 404 when /me is missing)
+        // should not immediately clear the token to avoid logging users out unexpectedly.
+        const status = error.response?.status;
+        if (status === 401) {
+          console.error('Auth check failed (unauthorized):', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setToken(null);
+          setUser(null);
+        } else {
+          // Non-auth errors: log and continue. The app will still function or surface other errors.
+          console.warn('Auth check encountered non-401 error, keeping token:', error);
+        }
       } finally {
         setIsLoading(false);
       }
