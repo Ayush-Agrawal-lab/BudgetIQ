@@ -9,21 +9,58 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 // rrweb network logging helper
 // ---------------------------
 function rrEmitNetworkEvent(eventData) {
-  if (window.__rr && typeof window.__rr.addCustomEvent === 'function') {
+  try {
+    if (!window.__rr || typeof window.__rr.addCustomEvent !== 'function') {
+      return;
+    }
+
     const safeStringify = (data) => {
       try {
-        return typeof data === 'undefined' ? '{}' : JSON.stringify(data);
+        // Handle undefined/null cases
+        if (data === undefined || data === null) {
+          return '{}';
+        }
+        
+        // If it's already a string, validate it's JSON-parseable
+        if (typeof data === 'string') {
+          try {
+            JSON.parse(data);
+            return data;
+          } catch {
+            // If string is not valid JSON, try to stringify it as a regular string
+            return JSON.stringify(data);
+          }
+        }
+        
+        // For objects/arrays, safely stringify with fallback
+        return JSON.stringify(data || {});
       } catch (e) {
+        console.warn('Error in safeStringify:', e);
         return '{}';
       }
     };
 
-    window.__rr.addCustomEvent('network', {
-      ...eventData,
+    // Ensure eventData is an object with default values
+    const safeEventData = {
+      phase: 'unknown',
+      api: 'axios',
+      url: '',
+      method: 'GET',
       timestamp: Date.now(),
-      requestBody: typeof eventData.requestBody === 'string' ? eventData.requestBody : safeStringify(eventData.requestBody),
-      responseBody: typeof eventData.responseBody === 'string' ? eventData.responseBody : safeStringify(eventData.responseBody)
+      ...(typeof eventData === 'object' && eventData !== null ? eventData : {})
+    };
+
+    // Process and emit the network event
+    window.__rr.addCustomEvent('network', {
+      ...safeEventData,
+      requestBody: safeStringify(safeEventData.requestBody),
+      responseBody: safeStringify(safeEventData.responseBody),
+      status: safeEventData.status || 0,
+      statusText: safeEventData.statusText || '',
+      headers: safeStringify(safeEventData.headers)
     });
+  } catch (error) {
+    console.warn('Error emitting network event:', error);
   }
 }
 

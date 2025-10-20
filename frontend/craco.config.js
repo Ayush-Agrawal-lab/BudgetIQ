@@ -4,7 +4,9 @@ const workboxPlugin = require('./craco-plugins/workbox');
 module.exports = {
   webpack: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, 'src'),
+      '@/lib': path.resolve(__dirname, 'src/lib'),
+      '@/components': path.resolve(__dirname, 'src/components')
     },
     configure: (webpackConfig, { env, paths }) => {
       // Filter out HotModuleReplacementPlugin in production
