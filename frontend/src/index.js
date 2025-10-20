@@ -4,15 +4,13 @@ import './index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import { initializeRRWeb, initializeErrorTracking } from './services/rrweb-service';
+
+// Initialize rrweb recording
+initializeRRWeb();
 
 // Initialize error tracking
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
-});
+initializeErrorTracking();
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
