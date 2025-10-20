@@ -133,7 +133,9 @@ async def signup(user: UserSignup):
     }
     supabase.supabase.table("users").insert(user_data).execute()
     token = create_access_token(user_data["id"])
-    return {"access_token": token}
+    # Return sanitized user data along with token to avoid extra /me request from clients
+    safe_user = {"id": user_data["id"], "name": user_data["name"], "email": user_data["email"], "created_at": user_data["created_at"]}
+    return {"access_token": token, "user": safe_user}
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
@@ -144,7 +146,9 @@ async def login(user: UserLogin):
     if not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token(db_user["id"])
-    return {"access_token": token}
+    # Return sanitized user data along with token so frontend can set user without extra call
+    safe_user = {"id": db_user.get("id"), "name": db_user.get("name"), "email": db_user.get("email"), "created_at": db_user.get("created_at")}
+    return {"access_token": token, "user": safe_user}
 
 @api_router.get("/auth/me")
 async def get_current_user_profile(current_user: TokenData = Depends(get_current_user)):

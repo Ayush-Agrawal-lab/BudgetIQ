@@ -251,17 +251,22 @@ function AuthPage({ onLogin }) {
         : { name: formData.name, email: formData.email, password: formData.password };
       
       const response = await axios.post(`${API_URL}${endpoint}`, payload);
-      
+
       if (!response.data.access_token) {
         throw new Error('Invalid response from server');
       }
-      
-      // Get user profile after login
-      const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${response.data.access_token}` }
-      });
-      
-      await onLogin(response.data.access_token, userResponse.data);
+
+      // If backend returns user data directly, use it. Otherwise fall back to /api/auth/me
+      const returnedUser = response.data.user;
+      let userProfile = returnedUser;
+      if (!userProfile) {
+        const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${response.data.access_token}` }
+        });
+        userProfile = userResponse.data;
+      }
+
+      await onLogin(response.data.access_token, userProfile);
       navigate('/dashboard');
     } catch (err) {
       console.error('Auth error:', err);
