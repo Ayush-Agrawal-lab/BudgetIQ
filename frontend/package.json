@@ -1,8 +1,10 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "budgetiq",
+  "version": "1.0.0",
   "private": true,
   "homepage": "https://ayush-agrawal-lab.github.io/BudgetIQ",
+  "description": "A smart personal finance management application - College Project",
+  "author": "Ayush Agrawal",
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@radix-ui/react-accordion": "^1.2.8",

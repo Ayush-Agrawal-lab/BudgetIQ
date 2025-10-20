@@ -44,13 +44,38 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
     } catch (e) {
       console.error('Error parsing user data:', e);
       return null;
     }
   });
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        if (token) {
+          const response = await axios.get(`${API_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setUser(response.data);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkAuth();
+  }, [token]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -81,12 +106,40 @@ function App() {
     setUser(null);
   };
 
-  const handleLogin = (token, user) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setToken(token);
-    setUser(user);
+  const handleLogin = async (token, user) => {
+    try {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setToken(token);
+      setUser(user);
+      
+      // Verify the token immediately
+      const response = await axios.get(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Update user data with full profile
+      const userData = response.data;
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    } catch (error) {
+      console.error('Login failed:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setToken(null);
+      setUser(null);
+      throw error;
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <Router>
@@ -193,13 +246,21 @@ function AuthPage({ onLogin }) {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
-      const payload = isLogin ? { email: formData.email, password: formData.password } : formData;
+      const payload = isLogin 
+        ? { email: formData.email, password: formData.password }
+        : { name: formData.name, email: formData.email, password: formData.password };
       
       const response = await axios.post(`${API_URL}${endpoint}`, payload);
-      onLogin(response.data.token, response.data.user);
+      
+      if (!response.data.token || !response.data.user) {
+        throw new Error('Invalid response from server');
+      }
+      
+      await onLogin(response.data.token, response.data.user);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+      console.error('Auth error:', err);
+      setError(err.response?.data?.detail || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -283,6 +344,29 @@ function AuthPage({ onLogin }) {
 function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Verify authentication on dashboard mount
+    const verifyAuth = async () => {
+      try {
+        if (!token) {
+          navigate('/auth');
+          return;
+        }
+        const response = await axios.get(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.data) {
+          throw new Error('Invalid auth state');
+        }
+      } catch (error) {
+        console.error('Dashboard auth check failed:', error);
+        onLogout();
+        navigate('/auth');
+      }
+    };
+    verifyAuth();
+  }, [token, navigate, onLogout]);
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
