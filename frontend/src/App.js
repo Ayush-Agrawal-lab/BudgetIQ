@@ -1,18 +1,114 @@
-import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
-import './services/posthog'; // Import PostHog configuration
+import React, { useState, useEffect, useMemo } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
-import { Button } from './components/ui/button';
-import { Card } from './components/ui/card';
-import { Input } from './components/ui/input';
-import { Label } from './components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal, DialogDescription } from './components/ui/dialog';
-import { Sun, Moon, Plus, TrendingUp, TrendingDown, Wallet, DollarSign, PieChart, Target, Settings, LogOut, Menu, X, CreditCard, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Home } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+// UI Components
+const Button = ({ children, variant = 'default', size = 'default', className = '', onClick, disabled, type = 'button', ...props }) => (
+  <button 
+    className={`btn ${variant} ${size} ${className}`} 
+    onClick={onClick} 
+    disabled={disabled} 
+    type={type} 
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const Card = ({ children, className = '', ...props }) => (
+  <div className={`card ${className}`} {...props}>{children}</div>
+);
+
+const Input = ({ type = 'text', placeholder, value, onChange, required, ...props }) => (
+  <input 
+    type={type} 
+    placeholder={placeholder} 
+    value={value} 
+    onChange={onChange} 
+    required={required}
+    className="input"
+    {...props}
+  />
+);
+
+const Label = ({ children, htmlFor, className = '' }) => (
+  <label htmlFor={htmlFor} className={`label ${className}`}>{children}</label>
+);
+
+const Select = ({ value, onValueChange, children, ...props }) => (
+  <select value={value} onChange={(e) => onValueChange(e.target.value)} className="select" {...props}>
+    {children}
+  </select>
+);
+
+const SelectTrigger = ({ children, ...props }) => <div className="select-trigger" {...props}>{children}</div>;
+const SelectValue = ({ placeholder }) => <span className="select-value">{placeholder}</span>;
+const SelectContent = ({ children }) => <div className="select-content">{children}</div>;
+const SelectItem = ({ value, children }) => <option value={value} className="select-item">{children}</option>;
+
+const Tabs = ({ value, onValueChange, children }) => (
+  <div className="tabs">
+    {React.Children.map(children, child => 
+      React.cloneElement(child, { value, onValueChange })
+    )}
+  </div>
+);
+
+const TabsList = ({ children }) => <div className="tabs-list">{children}</div>;
+const TabsTrigger = ({ value, children, ...props }) => (
+  <button 
+    className={`tab-trigger ${props['data-state'] === value ? 'active' : ''}`}
+    onClick={() => props.onValueChange?.(value)}
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const TabsContent = ({ value, children }) => (
+  <div className="tab-content" data-state={value}>{children}</div>
+);
+
+const Dialog = ({ open, onOpenChange, children, modal }) => {
+  if (!open) return null;
+  return (
+    <div className="dialog-overlay" onClick={() => onOpenChange(false)}>
+      <div className="dialog-content" onClick={e => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const DialogTrigger = ({ asChild, children }) => children;
+const DialogContent = ({ children }) => <div className="dialog-inner-content">{children}</div>;
+const DialogHeader = ({ children }) => <div className="dialog-header">{children}</div>;
+const DialogTitle = ({ children }) => <h3 className="dialog-title">{children}</h3>;
+const DialogDescription = ({ children }) => <p className="dialog-description">{children}</p>;
+
+// Icons
+const Sun = (props) => <span {...props}>☀️</span>;
+const Moon = (props) => <span {...props}>🌙</span>;
+const Plus = (props) => <span {...props}>+</span>;
+const TrendingUp = (props) => <span {...props}>📈</span>;
+const TrendingDown = (props) => <span {...props}>📉</span>;
+const Wallet = (props) => <span {...props}>💰</span>;
+const DollarSign = (props) => <span {...props}>💵</span>;
+const PieChart = (props) => <span {...props}>📊</span>;
+const Target = (props) => <span {...props}>🎯</span>;
+const Settings = (props) => <span {...props}>⚙️</span>;
+const LogOut = (props) => <span {...props}>🚪</span>;
+const Menu = (props) => <span {...props}>☰</span>;
+const X = (props) => <span {...props}>✕</span>;
+const CreditCard = (props) => <span {...props}>💳</span>;
+const BarChart3 = (props) => <span {...props}>📈</span>;
+const Sparkles = (props) => <span {...props}>✨</span>;
+const ArrowUpRight = (props) => <span {...props}>↗️</span>;
+const ArrowDownRight = (props) => <span {...props}>↘️</span>;
+const Home = (props) => <span {...props}>🏠</span>;
+
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
 
 // Configure axios defaults and interceptors
 axios.defaults.baseURL = API_URL;
@@ -36,12 +132,8 @@ axios.interceptors.response.use(
   }
 );
 
-function App() {
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return savedTheme || 'light';
-  });
-  const [token, setToken] = useState(localStorage.getItem('token'));
+// Custom hook for authentication
+function useAuth() {
   const [user, setUser] = useState(() => {
     try {
       const userData = localStorage.getItem('user');
@@ -51,11 +143,37 @@ function App() {
       return null;
     }
   });
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [loading, setLoading] = useState(true);
+
+  const login = async (userToken, userData) => {
+    localStorage.setItem('token', userToken);
+    setToken(userToken);
+    if (userData) {
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+  };
+
+  return { user, token, login, logout, loading };
+}
+
+function App() {
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme || 'light';
+  });
+  const { user, token, login, logout } = useAuth();
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount.
-  // Only call /api/auth/me when we have a token but no user stored locally.
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -63,28 +181,18 @@ function App() {
           const response = await axios.get(`${API_URL}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setUser(response.data);
+          localStorage.setItem('user', JSON.stringify(response.data));
         }
       } catch (error) {
-        // Only treat 401 as invalid credentials. Other errors (e.g. 404 when /me is missing)
-        // should not immediately clear the token to avoid logging users out unexpectedly.
-        const status = error.response?.status;
-        if (status === 401) {
-          console.error('Auth check failed (unauthorized):', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setToken(null);
-          setUser(null);
-        } else {
-          // Non-auth errors: log and continue. The app will still function or surface other errors.
-          console.warn('Auth check encountered non-401 error, keeping token:', error);
+        if (error.response?.status === 401) {
+          logout();
         }
       } finally {
         setIsLoading(false);
       }
     };
     checkAuth();
-  }, [token, user]);
+  }, [token, user, logout]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -108,40 +216,6 @@ function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-  };
-
-  const handleLogin = async (token, user) => {
-    try {
-      // Store token locally
-      localStorage.setItem('token', token);
-      setToken(token);
-
-      // If backend returned a user object, persist it. If not, keep user null and
-      // avoid calling /api/auth/me here (the server may not expose it).
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
-      } else {
-        // Clear any stale user but keep token so app can function.
-        localStorage.removeItem('user');
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Login state setup failed:', error);
-      // On failure to store token locally, clear state to avoid inconsistent behavior
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setToken(null);
-      setUser(null);
-      throw error;
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -156,12 +230,12 @@ function App() {
       <div className="app-container">
         <Routes>
           <Route path="/" element={!token ? <LandingPage onThemeToggle={toggleTheme} theme={theme} /> : <Navigate to="/dashboard" />} />
-          <Route path="/auth" element={!token ? <AuthPage onLogin={handleLogin} /> : <Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={token ? <DashboardLayout token={token} user={user} onLogout={handleLogout} onThemeToggle={toggleTheme} theme={theme}><Dashboard token={token} /></DashboardLayout> : <Navigate to="/" />} />
-          <Route path="/transactions" element={token ? <DashboardLayout token={token} user={user} onLogout={handleLogout} onThemeToggle={toggleTheme} theme={theme}><Transactions token={token} /></DashboardLayout> : <Navigate to="/" />} />
-          <Route path="/accounts" element={token ? <DashboardLayout token={token} user={user} onLogout={handleLogout} onThemeToggle={toggleTheme} theme={theme}><Accounts token={token} /></DashboardLayout> : <Navigate to="/" />} />
-          <Route path="/insights" element={token ? <DashboardLayout token={token} user={user} onLogout={handleLogout} onThemeToggle={toggleTheme} theme={theme}><Insights token={token} /></DashboardLayout> : <Navigate to="/" />} />
-          <Route path="/settings" element={token ? <DashboardLayout token={token} user={user} onLogout={handleLogout} onThemeToggle={toggleTheme} theme={theme}><SettingsPage user={user} onThemeToggle={toggleTheme} theme={theme} /></DashboardLayout> : <Navigate to="/" />} />
+          <Route path="/auth" element={!token ? <AuthPage onLogin={login} /> : <Navigate to="/dashboard" />} />
+          <Route path="/dashboard" element={token ? <DashboardLayout token={token} user={user} onLogout={logout} onThemeToggle={toggleTheme} theme={theme}><Dashboard token={token} /></DashboardLayout> : <Navigate to="/" />} />
+          <Route path="/transactions" element={token ? <DashboardLayout token={token} user={user} onLogout={logout} onThemeToggle={toggleTheme} theme={theme}><Transactions token={token} /></DashboardLayout> : <Navigate to="/" />} />
+          <Route path="/accounts" element={token ? <DashboardLayout token={token} user={user} onLogout={logout} onThemeToggle={toggleTheme} theme={theme}><Accounts token={token} /></DashboardLayout> : <Navigate to="/" />} />
+          <Route path="/insights" element={token ? <DashboardLayout token={token} user={user} onLogout={logout} onThemeToggle={toggleTheme} theme={theme}><Insights token={token} /></DashboardLayout> : <Navigate to="/" />} />
+          <Route path="/settings" element={token ? <DashboardLayout token={token} user={user} onLogout={logout} onThemeToggle={toggleTheme} theme={theme}><SettingsPage user={user} onThemeToggle={toggleTheme} theme={theme} /></DashboardLayout> : <Navigate to="/" />} />
         </Routes>
       </div>
     </Router>
@@ -266,17 +340,7 @@ function AuthPage({ onLogin }) {
         throw new Error('Invalid response from server');
       }
 
-      // If backend returns user data directly, use it. Otherwise fall back to /api/auth/me
-      const returnedUser = response.data.user;
-      let userProfile = returnedUser;
-      if (!userProfile) {
-        const userResponse = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${response.data.access_token}` }
-        });
-        userProfile = userResponse.data;
-      }
-
-      await onLogin(response.data.access_token, userProfile);
+      await onLogin(response.data.access_token, response.data.user);
       navigate('/dashboard');
     } catch (err) {
       console.error('Auth error:', err);
@@ -364,28 +428,22 @@ function AuthPage({ onLogin }) {
 function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
   
   useEffect(() => {
-    // Verify authentication on dashboard mount.
-    // If a `user` object is already present (from login/signup), skip calling /me.
     const verifyAuth = async () => {
       try {
         if (!token) {
           navigate('/auth');
           return;
         }
-
-        if (user) {
-          // We have token and user info locally — assume authenticated.
-          return;
-        }
-
-        // Only call /api/auth/me if we don't already have the user object.
-        const response = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!response.data) {
-          throw new Error('Invalid auth state');
+        if (!user) {
+          const response = await axios.get(`${API_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.data) {
+            throw new Error('Invalid auth state');
+          }
         }
       } catch (error) {
         console.error('Dashboard auth check failed:', error);
@@ -418,7 +476,7 @@ function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`nav-item ${window.location.pathname === item.path ? 'active' : ''}`}
+              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
               data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
             >
               <item.icon size={20} />
@@ -469,7 +527,6 @@ function Dashboard({ token }) {
   useEffect(() => {
     fetchDashboardData();
     
-    // Listen for dashboard updates
     const handleUpdate = () => {
       fetchDashboardData();
     };
@@ -478,32 +535,27 @@ function Dashboard({ token }) {
     return () => {
       window.removeEventListener('dashboard-update', handleUpdate);
     };
-  }, [token]); // Add token as dependency to re-fetch when it changes
+  }, [token]);
 
   const fetchDashboardData = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      // First fetch accounts and transactions to calculate summary
       const [accountsRes, transactionsRes] = await Promise.all([
         axios.get(`${API_URL}/api/accounts`, { headers }),
         axios.get(`${API_URL}/api/transactions`, { headers })
       ]);
 
-      // Calculate summary from transactions
-      const transactions = transactionsRes.data;
+      const transactions = transactionsRes.data || [];
       const totalIncome = transactions
         .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
       const totalExpense = transactions
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
       const totalSavings = totalIncome - totalExpense;
 
-      // Calculate monthly trend
       const monthlyTrend = calculateMonthlyTrend(transactions);
-
-      // Calculate category breakdown
       const categoryBreakdown = calculateCategoryBreakdown(transactions);
 
       setSummary({
@@ -514,16 +566,17 @@ function Dashboard({ token }) {
         category_breakdown: categoryBreakdown
       });
 
-      // Fetch other data
-      const [predictionRes, scoreRes, goalsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/insights/prediction`, { headers }),
-        axios.get(`${API_URL}/api/insights/score`, { headers }),
-        axios.get(`${API_URL}/api/goals`, { headers }),
-      ]);
+      // Mock data for prediction and score
+      setPrediction({
+        predicted_amount: Math.round(totalExpense * 1.1),
+        confidence: 'medium',
+        trend: totalExpense > totalIncome ? 'increasing' : 'decreasing',
+        historical_average: Math.round(totalExpense * 0.9)
+      });
 
-      setPrediction(predictionRes.data);
-      setScore(scoreRes.data.score);
-      setGoals(goalsRes.data);
+      setScore(Math.min(100, Math.max(0, Math.round((totalSavings / (totalIncome || 1)) * 100))));
+      setGoals([]);
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -531,19 +584,18 @@ function Dashboard({ token }) {
     }
   };
 
-  // Helper function to calculate monthly trend
   const calculateMonthlyTrend = (transactions) => {
     const monthlyData = {};
     
     transactions.forEach(txn => {
-      const month = txn.date.substring(0, 7); // Get YYYY-MM
+      const month = txn.date?.substring(0, 7) || '2024-01';
       if (!monthlyData[month]) {
         monthlyData[month] = { income: 0, expense: 0 };
       }
       if (txn.type === 'income') {
-        monthlyData[month].income += parseFloat(txn.amount);
+        monthlyData[month].income += parseFloat(txn.amount || 0);
       } else {
-        monthlyData[month].expense += parseFloat(txn.amount);
+        monthlyData[month].expense += parseFloat(txn.amount || 0);
       }
     });
 
@@ -556,17 +608,17 @@ function Dashboard({ token }) {
       }));
   };
 
-  // Helper function to calculate category breakdown
   const calculateCategoryBreakdown = (transactions) => {
     const breakdown = {};
     
     transactions
       .filter(txn => txn.type === 'expense')
       .forEach(txn => {
-        if (!breakdown[txn.category]) {
-          breakdown[txn.category] = 0;
+        const category = txn.category || 'other';
+        if (!breakdown[category]) {
+          breakdown[category] = 0;
         }
-        breakdown[txn.category] += parseFloat(txn.amount);
+        breakdown[category] += parseFloat(txn.amount || 0);
       });
 
     return breakdown;
@@ -586,28 +638,28 @@ function Dashboard({ token }) {
       <div className="stats-grid">
         <StatCard
           title="Total Income"
-          value={`₹${summary?.total_income || 0}`}
+          value={`₹${summary?.total_income?.toLocaleString() || 0}`}
           icon={<TrendingUp />}
           trend="positive"
           testId="stat-income"
         />
         <StatCard
           title="Total Expenses"
-          value={`₹${summary?.total_expense || 0}`}
+          value={`₹${summary?.total_expense?.toLocaleString() || 0}`}
           icon={<TrendingDown />}
           trend="negative"
           testId="stat-expense"
         />
         <StatCard
           title="Total Savings"
-          value={`₹${summary?.total_savings || 0}`}
+          value={`₹${summary?.total_savings?.toLocaleString() || 0}`}
           icon={<DollarSign />}
           trend={summary?.total_savings > 0 ? 'positive' : 'negative'}
           testId="stat-savings"
         />
         <StatCard
           title="AI Prediction"
-          value={`₹${prediction?.predicted_amount || 0}`}
+          value={`₹${prediction?.predicted_amount?.toLocaleString() || 0}`}
           icon={<Sparkles />}
           subtitle={`Next month (${prediction?.confidence || 'low'} confidence)`}
           testId="stat-prediction"
@@ -700,19 +752,21 @@ function StatCard({ title, value, icon, trend, subtitle, testId }) {
 }
 
 function SimpleBarChart({ data }) {
-  const maxValue = Math.max(...data.map(d => Math.max(d.income, d.expense)));
+  const maxValue = Math.max(...data.map(d => Math.max(d.income, d.expense)), 1);
   
   return (
     <div className="simple-bar-chart">
-      {data.map((item, index) => (
-        <div key={index} className="chart-bar-group">
-          <div className="chart-bars">
-            <div className="chart-bar income" style={{height: `${(item.income / maxValue) * 100}%`}} title={`Income: ₹${item.income}`} />
-            <div className="chart-bar expense" style={{height: `${(item.expense / maxValue) * 100}%`}} title={`Expense: ₹${item.expense}`} />
+      <div className="chart-bars-container">
+        {data.map((item, index) => (
+          <div key={index} className="chart-bar-group">
+            <div className="chart-bars">
+              <div className="chart-bar income" style={{height: `${(item.income / maxValue) * 100}%`}} title={`Income: ₹${item.income}`} />
+              <div className="chart-bar expense" style={{height: `${(item.expense / maxValue) * 100}%`}} title={`Expense: ₹${item.expense}`} />
+            </div>
+            <span className="chart-label">{item.month.split('-')[1]}</span>
           </div>
-          <span className="chart-label">{item.month.split('-')[1]}</span>
-        </div>
-      ))}
+        ))}
+      </div>
       <div className="chart-legend">
         <span><span className="legend-dot income"></span>Income</span>
         <span><span className="legend-dot expense"></span>Expense</span>
@@ -750,7 +804,7 @@ function Transactions({ token }) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [token]);
 
   const fetchData = async () => {
     try {
@@ -759,21 +813,19 @@ function Transactions({ token }) {
         axios.get(`${API_URL}/api/transactions`, { headers }),
         axios.get(`${API_URL}/api/accounts`, { headers }),
       ]);
-      // Sort transactions by date in descending order (newest first)
-      const sortedTransactions = txnRes.data.sort((a, b) => 
+      
+      const sortedTransactions = (txnRes.data || []).sort((a, b) => 
         new Date(b.date) - new Date(a.date)
       );
       setTransactions(sortedTransactions);
-      setAccounts(accRes.data);
+      setAccounts(accRes.data || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      alert('Error loading transactions. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Add listener for transaction updates
   useEffect(() => {
     const handleUpdate = () => {
       fetchData();
@@ -858,14 +910,14 @@ function Accounts({ token }) {
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [token]);
 
   const fetchAccounts = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/accounts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAccounts(response.data);
+      setAccounts(response.data || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
     } finally {
@@ -876,7 +928,6 @@ function Accounts({ token }) {
   const handleAddAccount = async (e) => {
     e.preventDefault();
     try {
-      // Validate form data
       if (!formData.name.trim()) {
         alert('Please enter an account name');
         return;
@@ -922,7 +973,7 @@ function Accounts({ token }) {
           <h1>Accounts</h1>
           <p>Manage your financial accounts</p>
         </div>
-        <Dialog modal={true} open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="add-account-button" data-testid="add-account-btn">
               <Plus size={20} />
@@ -1010,19 +1061,28 @@ function Insights({ token }) {
 
   useEffect(() => {
     fetchInsights();
-  }, []);
+  }, [token]);
 
   const fetchInsights = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [predRes, tipsRes, goalsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/insights/prediction`, { headers }),
-        axios.get(`${API_URL}/api/insights/tips`, { headers }),
-        axios.get(`${API_URL}/api/goals`, { headers }),
+      
+      // Mock data for demonstration
+      setPrediction({
+        predicted_amount: 15000,
+        confidence: 'medium',
+        trend: 'decreasing',
+        historical_average: 12000
+      });
+      
+      setTips([
+        "Consider reducing dining out expenses",
+        "Set up automatic savings transfers",
+        "Review subscription services monthly"
       ]);
-      setPrediction(predRes.data);
-      setTips(tipsRes.data.tips);
-      setGoals(goalsRes.data);
+      
+      setGoals([]);
+
     } catch (error) {
       console.error('Error fetching insights:', error);
     } finally {
@@ -1033,12 +1093,16 @@ function Insights({ token }) {
   const handleAddGoal = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/api/goals`, goalForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // Mock API call - replace with actual API
+      const newGoal = {
+        id: Date.now(),
+        ...goalForm,
+        target_amount: parseFloat(goalForm.target_amount),
+        current_amount: parseFloat(goalForm.current_amount)
+      };
+      setGoals(prev => [...prev, newGoal]);
       setIsAddGoalOpen(false);
       setGoalForm({ name: '', target_amount: 0, current_amount: 0, deadline: '' });
-      fetchInsights();
     } catch (error) {
       console.error('Error adding goal:', error);
     }
@@ -1047,10 +1111,7 @@ function Insights({ token }) {
   const handleDeleteGoal = async (id) => {
     if (!window.confirm('Delete this goal?')) return;
     try {
-      await axios.delete(`${API_URL}/api/goals/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchInsights();
+      setGoals(prev => prev.filter(goal => goal.id !== id));
     } catch (error) {
       console.error('Error deleting goal:', error);
     }
@@ -1259,20 +1320,19 @@ function QuickAddFAB({ token }) {
     if (isOpen) {
       fetchAccounts();
     }
-  }, [isOpen]);
+  }, [isOpen, token]);
 
   const fetchAccounts = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/accounts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setAccounts(response.data);
+      setAccounts(response.data || []);
       if (response.data.length > 0) {
         setFormData(prev => ({ ...prev, account_id: response.data[0].id }));
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
-      // Show error in the UI instead of console
       setErrors(prev => ({
         ...prev,
         fetch: 'Failed to load accounts. Please try again.'
@@ -1320,7 +1380,6 @@ function QuickAddFAB({ token }) {
   };
 
   const handleInputChange = (field, value) => {
-    // Clear error for the field being edited
     setErrors(prev => ({...prev, [field]: ''}));
     setFormData(prev => ({...prev, [field]: value}));
   };
@@ -1329,10 +1388,8 @@ function QuickAddFAB({ token }) {
     e.preventDefault();
     if (loading) return;
 
-    // Clear any previous submission errors
     setErrors({});
 
-    // Validate form
     if (!validateForm()) {
       return;
     }
@@ -1349,7 +1406,6 @@ function QuickAddFAB({ token }) {
       });
 
       if (response.data) {
-        // Reset form and state
         setIsOpen(false);
         setFormData({
           account_id: accounts[0]?.id || '',
@@ -1361,17 +1417,14 @@ function QuickAddFAB({ token }) {
         });
         setErrors({});
 
-        // Trigger updates
         window.dispatchEvent(new CustomEvent('dashboard-update'));
         window.dispatchEvent(new CustomEvent('transactions-update'));
 
-        // Show success message
         alert('Transaction added successfully!');
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
       
-      // Handle specific error cases
       if (error.response?.status === 401) {
         setErrors({submit: 'Session expired. Please log in again.'});
       } else if (error.response?.status === 400) {
@@ -1392,10 +1445,9 @@ function QuickAddFAB({ token }) {
 
   return (
     <>
-      <Dialog modal={true} open={isOpen} onOpenChange={(open) => {
+      <Dialog open={isOpen} onOpenChange={(open) => {
         setIsOpen(open);
         if (!open) {
-          // Clear errors when closing dialog
           setErrors({});
         }
       }}>
