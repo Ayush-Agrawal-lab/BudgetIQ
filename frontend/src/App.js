@@ -9,7 +9,7 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal } from './components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogPortal, DialogDescription } from './components/ui/dialog';
 import { Sun, Moon, Plus, TrendingUp, TrendingDown, Wallet, DollarSign, PieChart, Target, Settings, LogOut, Menu, X, CreditCard, BarChart3, Sparkles, ArrowUpRight, ArrowDownRight, Home } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -929,11 +929,11 @@ function Accounts({ token }) {
               Add Account
             </Button>
           </DialogTrigger>
-          <DialogContent aria-describedby="account-dialog-description">
-            <DialogHeader>
-              <DialogTitle>Add New Account</DialogTitle>
-              <p id="account-dialog-description" className="text-muted-foreground">Add a new financial account to track your balance.</p>
-            </DialogHeader>
+          <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Account</DialogTitle>
+                <DialogDescription>Add a new financial account to track your balance.</DialogDescription>
+              </DialogHeader>
             <form onSubmit={handleAddAccount} className="dialog-form">
               <div className="form-group">
                 <Label>Account Name</Label>
@@ -1115,10 +1115,10 @@ function Insights({ token }) {
                 Add Goal
               </Button>
             </DialogTrigger>
-            <DialogContent aria-describedby="goal-dialog-description">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create Financial Goal</DialogTitle>
-                <p id="goal-dialog-description" className="text-muted-foreground">Set up a new financial goal to track your savings progress.</p>
+                <DialogDescription>Set up a new financial goal to track your savings progress.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddGoal} className="dialog-form">
                 <div className="form-group">
@@ -1404,10 +1404,10 @@ function QuickAddFAB({ token }) {
             <Plus size={24} />
           </button>
         </DialogTrigger>
-        <DialogContent aria-describedby="transaction-dialog-description">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Quick Add Transaction</DialogTitle>
-            <p id="transaction-dialog-description" className="text-muted-foreground">Add a new income or expense transaction to your account.</p>
+            <DialogDescription>Add a new income or expense transaction to your account.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="dialog-form">
             {errors.fetch && (
