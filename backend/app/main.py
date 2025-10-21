@@ -269,6 +269,55 @@ async def score(current_user: TokenData = Depends(get_current_user)):
     score = min(100, total / 1000 * 100)
     return {"score": score}
 
+@api_router.get("/insights/tips")
+async def get_tips(current_user: TokenData = Depends(get_current_user)):
+    # Fetch user's transactions
+    transactions = supabase.supabase.table("transactions").select("*").eq("user_id", current_user.user_id).execute()
+    data = transactions.data if transactions.data else []
+    
+    # Generate tips based on transaction patterns
+    tips = []
+    if data:
+        # Calculate total expenses and income
+        expenses = [t for t in data if t["type"] == "expense"]
+        income = [t for t in data if t["type"] == "income"]
+        total_expense = sum(t["amount"] for t in expenses)
+        total_income = sum(t["amount"] for t in income)
+        
+        # Analyze spending patterns
+        if expenses:
+            categories = defaultdict(float)
+            for t in expenses:
+                categories[t["category"]] += t["amount"]
+            
+            # Find highest spending category
+            if categories:
+                highest_category = max(categories.items(), key=lambda x: x[1])
+                tips.append(f"Your highest spending is in the {highest_category[0]} category. Consider setting a budget for this category.")
+        
+        # Income vs Expenses analysis
+        if total_income > 0:
+            savings_rate = (total_income - total_expense) / total_income * 100
+            if savings_rate < 20:
+                tips.append("Consider saving at least 20% of your income for financial security.")
+            elif savings_rate > 50:
+                tips.append("Great job on your savings! Consider investing some of your savings for better returns.")
+        
+        # Basic tips
+        if len(data) >= 5:
+            tips.append("Track your recurring expenses and look for potential subscriptions you can cancel.")
+            tips.append("Set up automatic savings transfers to meet your financial goals faster.")
+    
+    # If no data or few transactions
+    if not tips:
+        tips = [
+            "Start by recording all your expenses to get better financial insights.",
+            "Create a monthly budget to track your spending.",
+            "Set clear financial goals to improve your saving habits."
+        ]
+    
+    return {"tips": tips}
+
 # ---------------- INIT DATABASE ----------------
 async def init_database():
     return True
