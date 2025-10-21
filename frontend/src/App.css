@@ -291,18 +291,42 @@ body {
   gap: 0.5rem;
 }
 
+/* ==================== ERROR STATES ==================== */
 .error-message {
-  padding: 0.75rem;
-  background: #fee2e2;
-  color: #dc2626;
+  padding: 0.75rem 1rem;
+  background: var(--error-bg, #fee2e2);
+  border: 1px solid var(--error-border, #fca5a5);
+  color: var(--error-text, #dc2626);
   border-radius: 8px;
   font-size: 0.875rem;
-  text-align: center;
+  margin: 0.5rem 0;
 }
 
+.error-text {
+  color: var(--error-text, #dc2626);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.form-group.has-error input,
+.form-group.has-error select {
+  border-color: var(--error-border, #fca5a5);
+}
+
+/* Dark mode overrides */
 :root[data-theme="dark"] .error-message {
-  background: #7f1d1d;
-  color: #fca5a5;
+  background: var(--error-bg, #7f1d1d);
+  color: var(--error-text, #fca5a5);
+  border-color: var(--error-border, #ef4444);
+}
+
+:root[data-theme="dark"] .error-text {
+  color: var(--error-text, #fca5a5);
+}
+
+:root[data-theme="dark"] .form-group.has-error input,
+:root[data-theme="dark"] .form-group.has-error select {
+  border-color: var(--error-border, #ef4444);
 }
 
 .auth-submit-btn {

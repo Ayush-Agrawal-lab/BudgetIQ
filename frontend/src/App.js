@@ -1243,6 +1243,7 @@ function QuickAddFAB({ token }) {
   const [isOpen, setIsOpen] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
     account_id: '',
     type: 'expense',
@@ -1269,37 +1270,74 @@ function QuickAddFAB({ token }) {
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
+      // Show error in the UI instead of console
+      setErrors(prev => ({
+        ...prev,
+        fetch: 'Failed to load accounts. Please try again.'
+      }));
     }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.account_id) {
+      newErrors.account_id = 'Please select an account';
+    }
+
+    if (!formData.amount) {
+      newErrors.amount = 'Please enter an amount';
+    } else if (parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'Amount must be greater than 0';
+    } else if (isNaN(parseFloat(formData.amount))) {
+      newErrors.amount = 'Please enter a valid number';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Please enter a description';
+    } else if (formData.description.length > 100) {
+      newErrors.description = 'Description must be less than 100 characters';
+    }
+
+    if (!formData.category) {
+      newErrors.category = 'Please select a category';
+    }
+
+    if (!formData.date) {
+      newErrors.date = 'Please select a date';
+    } else {
+      const selectedDate = new Date(formData.date);
+      const today = new Date();
+      if (selectedDate > today) {
+        newErrors.date = 'Date cannot be in the future';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field, value) => {
+    // Clear error for the field being edited
+    setErrors(prev => ({...prev, [field]: ''}));
+    setFormData(prev => ({...prev, [field]: value}));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
 
-    try {
-      // Enhanced form validation
-      if (!formData.account_id) {
-        alert('Please select an account');
-        return;
-      }
-      if (!formData.amount || parseFloat(formData.amount) <= 0) {
-        alert('Please enter a valid amount greater than 0');
-        return;
-      }
-      if (!formData.description.trim()) {
-        alert('Please enter a description');
-        return;
-      }
-      if (!formData.category) {
-        alert('Please select a category');
-        return;
-      }
-      if (!formData.date) {
-        alert('Please select a date');
-        return;
-      }
+    // Clear any previous submission errors
+    setErrors({});
 
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
       setLoading(true);
+
       const response = await axios.post(`${API_URL}/api/transactions`, {
         ...formData,
         description: formData.description.trim(),
@@ -1309,7 +1347,7 @@ function QuickAddFAB({ token }) {
       });
 
       if (response.data) {
-        // Reset form
+        // Reset form and state
         setIsOpen(false);
         setFormData({
           account_id: accounts[0]?.id || '',
@@ -1319,20 +1357,32 @@ function QuickAddFAB({ token }) {
           description: '',
           date: new Date().toISOString().split('T')[0]
         });
+        setErrors({});
+
+        // Trigger updates
+        window.dispatchEvent(new CustomEvent('dashboard-update'));
+        window.dispatchEvent(new CustomEvent('transactions-update'));
 
         // Show success message
         alert('Transaction added successfully!');
-
-        // Refresh components that show transaction data
-        window.dispatchEvent(new CustomEvent('dashboard-update'));
-        window.dispatchEvent(new CustomEvent('transactions-update'));
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
-      const errorMessage = error.response?.data?.detail || 
-                          error.response?.data?.message || 
-                          'Failed to add transaction. Please try again.';
-      alert(errorMessage);
+      
+      // Handle specific error cases
+      if (error.response?.status === 401) {
+        setErrors({submit: 'Session expired. Please log in again.'});
+      } else if (error.response?.status === 400) {
+        setErrors({submit: error.response.data.detail || 'Invalid transaction data'});
+      } else if (error.response?.status === 403) {
+        setErrors({submit: 'You do not have permission to add transactions'});
+      } else {
+        setErrors({
+          submit: error.response?.data?.detail || 
+                 error.response?.data?.message || 
+                 'Failed to add transaction. Please try again.'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -1340,7 +1390,13 @@ function QuickAddFAB({ token }) {
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          // Clear errors when closing dialog
+          setErrors({});
+        }
+      }}>
         <DialogTrigger asChild>
           <button className="quick-add-fab" data-testid="quick-add-fab">
             <Plus size={24} />
@@ -1351,9 +1407,15 @@ function QuickAddFAB({ token }) {
             <DialogTitle>Quick Add Transaction</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="dialog-form">
+            {errors.fetch && (
+              <div className="error-message" role="alert">{errors.fetch}</div>
+            )}
             <div className="form-group">
               <Label>Type</Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
+              <Select 
+                value={formData.type}
+                onValueChange={(value) => handleInputChange('type', value)}
+              >
                 <SelectTrigger data-testid="quick-add-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -1362,10 +1424,16 @@ function QuickAddFAB({ token }) {
                   <SelectItem value="expense">Expense</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.type && (
+                <span className="error-text" role="alert">{errors.type}</span>
+              )}
             </div>
             <div className="form-group">
               <Label>Account</Label>
-              <Select value={formData.account_id} onValueChange={(value) => setFormData({...formData, account_id: value})}>
+              <Select 
+                value={formData.account_id}
+                onValueChange={(value) => handleInputChange('account_id', value)}
+              >
                 <SelectTrigger data-testid="quick-add-account">
                   <SelectValue />
                 </SelectTrigger>
@@ -1375,6 +1443,9 @@ function QuickAddFAB({ token }) {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.account_id && (
+                <span className="error-text" role="alert">{errors.account_id}</span>
+              )}
             </div>
             <div className="form-group">
               <Label>Amount</Label>
@@ -1382,14 +1453,22 @@ function QuickAddFAB({ token }) {
                 type="number"
                 placeholder="100"
                 value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                onChange={(e) => handleInputChange('amount', e.target.value)}
                 required
                 data-testid="quick-add-amount"
+                min="0"
+                step="0.01"
               />
+              {errors.amount && (
+                <span className="error-text" role="alert">{errors.amount}</span>
+              )}
             </div>
             <div className="form-group">
               <Label>Category</Label>
-              <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+              <Select 
+                value={formData.category}
+                onValueChange={(value) => handleInputChange('category', value)}
+              >
                 <SelectTrigger data-testid="quick-add-category">
                   <SelectValue />
                 </SelectTrigger>
@@ -1403,28 +1482,47 @@ function QuickAddFAB({ token }) {
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.category && (
+                <span className="error-text" role="alert">{errors.category}</span>
+              )}
             </div>
             <div className="form-group">
               <Label>Description</Label>
               <Input
                 placeholder="e.g., Lunch at cafe"
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) => handleInputChange('description', e.target.value)}
                 required
                 data-testid="quick-add-description"
+                maxLength={100}
               />
+              {errors.description && (
+                <span className="error-text" role="alert">{errors.description}</span>
+              )}
             </div>
             <div className="form-group">
               <Label>Date</Label>
               <Input
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                onChange={(e) => handleInputChange('date', e.target.value)}
                 required
                 data-testid="quick-add-date"
+                max={new Date().toISOString().split('T')[0]}
               />
+              {errors.date && (
+                <span className="error-text" role="alert">{errors.date}</span>
+              )}
             </div>
-            <Button type="submit" className="w-full" data-testid="quick-add-submit" disabled={loading}>
+            {errors.submit && (
+              <div className="error-message" role="alert">{errors.submit}</div>
+            )}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              data-testid="quick-add-submit" 
+              disabled={loading}
+            >
               {loading ? 'Adding...' : 'Add Transaction'}
             </Button>
           </form>
