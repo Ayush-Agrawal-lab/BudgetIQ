@@ -97,8 +97,15 @@ const Dialog = ({ open, onOpenChange, children, modal }) => {
 const DialogTrigger = ({ asChild, children, ...props }) => 
   React.cloneElement(children, props);
 
-const DialogContent = ({ children, ...props }) => (
-  <div className="dialog-inner-content" {...props}>
+const DialogContent = ({ children, description = "Dialog content", ...props }) => (
+  <div 
+    className="dialog-inner-content" 
+    role="dialog"
+    aria-modal="true"
+    aria-describedby="dialog-description"
+    {...props}
+  >
+    <div id="dialog-description" className="sr-only">{description}</div>
     {children}
   </div>
 );
@@ -929,10 +936,35 @@ function Accounts({ token }) {
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', type: 'bank', balance: 0 });
+  const [recovery, setRecovery] = useState({ data: null, timestamp: null });
 
   useEffect(() => {
     fetchAccounts();
   }, [token]);
+
+  useEffect(() => {
+    if (isAddDialogOpen && recovery.data && Date.now() - recovery.timestamp < 1000 * 60 * 5) {
+      const restore = window.confirm('Restore previous form data?');
+      if (restore) {
+        setFormData(recovery.data);
+      }
+      setRecovery({ data: null, timestamp: null });
+    }
+  }, [isAddDialogOpen]);
+
+  const debouncedFetchAccounts = useCallback(
+    debounce(async () => {
+      try {
+        const data = await api.accounts.getAll();
+        setAccounts(data || []);
+      } catch (error) {
+        console.error('Error fetching accounts:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, 300),
+    [token]
+  );
 
   const fetchAccounts = async () => {
     try {
@@ -947,42 +979,96 @@ function Accounts({ token }) {
     }
   };
 
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const validateAccountForm = () => {
+    const newErrors = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Please enter an account name';
+    } else if (formData.name.length > 50) {
+      newErrors.name = 'Account name must be less than 50 characters';
+    }
+    
+    if (formData.balance < 0) {
+      newErrors.balance = 'Initial balance cannot be negative';
+    }
+    
+    if (!formData.type) {
+      newErrors.type = 'Please select an account type';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleAddAccount = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
+    if (!validateAccountForm()) {
+      return;
+    }
+
+    const optimisticAccount = {
+      id: 'temp-' + Date.now(),
+      ...formData,
+      name: formData.name.trim(),
+      balance: parseFloat(formData.balance),
+      created_at: new Date().toISOString()
+    };
+
     try {
-      if (!formData.name.trim()) {
-        alert('Please enter an account name');
-        return;
-      }
-      if (formData.balance < 0) {
-        alert('Initial balance cannot be negative');
-        return;
-      }
+      setSubmitting(true);
+      // Add optimistic update
+      setAccounts(prev => [optimisticAccount, ...prev]);
       
-      await axios.post(`${API_URL}/api/accounts`, {
+      const response = await api.accounts.create({
         ...formData,
         name: formData.name.trim(),
         balance: parseFloat(formData.balance)
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
-      setIsAddDialogOpen(false);
-      setFormData({ name: '', type: 'bank', balance: 0 });
-      fetchAccounts();
+      
+      if (response) {
+        // Replace optimistic with real data
+        setAccounts(prev => 
+          prev.map(acc => acc.id === optimisticAccount.id ? response : acc)
+        );
+        setFormData({ name: '', type: 'bank', balance: 0 });
+        setErrors({});
+        setIsAddDialogOpen(false);
+      }
     } catch (error) {
+      // Revert optimistic update
+      setAccounts(prev => prev.filter(acc => acc.id !== optimisticAccount.id));
       console.error('Error adding account:', error);
+      setErrors({
+        submit: error.response?.data?.detail || 
+                error.response?.data?.message || 
+                'Failed to add account. Please try again.'
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this account?')) return;
+    
+    const accountToDelete = accounts.find(acc => acc.id === id);
+    if (!accountToDelete) return;
+
     try {
-      await axios.delete(`${API_URL}/api/accounts/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchAccounts();
+      // Optimistic delete
+      setAccounts(prev => prev.filter(acc => acc.id !== id));
+
+      await api.accounts.delete(id);
     } catch (error) {
+      // Revert on error
+      setAccounts(prev => [...prev, accountToDelete]);
       console.error('Error deleting account:', error);
+      alert('Failed to delete account. Please try again.');
     }
   };
 
@@ -995,34 +1081,65 @@ function Accounts({ token }) {
           <h1>Accounts</h1>
           <p>Manage your financial accounts</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog 
+          open={isAddDialogOpen} 
+          onOpenChange={(open) => {
+            if (!open && formData.name || formData.balance) {
+              setRecovery({
+                data: formData,
+                timestamp: Date.now()
+              });
+            }
+            setIsAddDialogOpen(open);
+            if (!open) {
+              setFormData({ name: '', type: 'bank', balance: 0 });
+              setErrors({});
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="add-account-button" data-testid="add-account-btn">
               <Plus size={20} />
               Add Account
             </Button>
           </DialogTrigger>
-          <DialogContent aria-describedby="account-dialog-description">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Account</DialogTitle>
-              <DialogDescription id="account-dialog-description">
+              <DialogDescription>
                 Add a new financial account to track your balance.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddAccount} className="dialog-form">
+              {errors.submit && (
+                <div className="error-message" role="alert">{errors.submit}</div>
+              )}
               <div className="form-group">
                 <Label>Account Name</Label>
                 <Input
                   placeholder="e.g., Main Savings"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => {
+                    setErrors(prev => ({...prev, name: '', submit: ''}));
+                    setFormData({...formData, name: e.target.value});
+                  }}
                   required
+                  maxLength={50}
                   data-testid="account-name-input"
                 />
+                {errors.name && (
+                  <span className="error-text" role="alert">{errors.name}</span>
+                )}
               </div>
               <div className="form-group">
                 <Label>Account Type</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
+                <Select 
+                  value={formData.type} 
+                  onValueChange={(value) => {
+                    setErrors(prev => ({...prev, type: '', submit: ''}));
+                    setFormData({...formData, type: value});
+                  }}
+                >
                   <SelectTrigger data-testid="account-type-select">
                     <SelectValue />
                   </SelectTrigger>
@@ -1033,6 +1150,9 @@ function Accounts({ token }) {
                     <SelectItem value="upi">UPI</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.type && (
+                  <span className="error-text" role="alert">{errors.type}</span>
+                )}
               </div>
               <div className="form-group">
                 <Label>Initial Balance</Label>
@@ -1040,12 +1160,27 @@ function Accounts({ token }) {
                   type="number"
                   placeholder="0"
                   value={formData.balance}
-                  onChange={(e) => setFormData({...formData, balance: parseFloat(e.target.value) || 0})}
+                  onChange={(e) => {
+                    setErrors(prev => ({...prev, balance: '', submit: ''}));
+                    setFormData({...formData, balance: parseFloat(e.target.value) || 0});
+                  }}
                   required
+                  min="0"
+                  step="0.01"
                   data-testid="account-balance-input"
                 />
+                {errors.balance && (
+                  <span className="error-text" role="alert">{errors.balance}</span>
+                )}
               </div>
-              <Button type="submit" className="w-full" data-testid="submit-account-btn">Add Account</Button>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                data-testid="submit-account-btn"
+                disabled={submitting}
+              >
+                {submitting ? 'Adding...' : 'Add Account'}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -1414,25 +1549,47 @@ function QuickAddFAB({ token }) {
     e.preventDefault();
     if (loading) return;
 
+    if (!accounts.length) {
+      setErrors({
+        submit: 'Please create an account first before adding transactions'
+      });
+      return;
+    }
+
     setErrors({});
 
     if (!validateForm()) {
       return;
     }
 
+    const optimisticTransaction = {
+      id: 'temp-' + Date.now(),
+      ...formData,
+      description: formData.description.trim(),
+      amount: parseFloat(formData.amount),
+      created_at: new Date().toISOString()
+    };
+
     try {
       setLoading(true);
 
-      const response = await axios.post(`${API_URL}/api/transactions`, {
+      // Trigger optimistic update
+      window.dispatchEvent(new CustomEvent('transactions-optimistic-add', {
+        detail: optimisticTransaction
+      }));
+
+      const response = await api.transactions.create({
         ...formData,
         description: formData.description.trim(),
         amount: parseFloat(formData.amount)
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (response.data) {
-        setIsOpen(false);
+      if (response) {
+        // Trigger real update
+        window.dispatchEvent(new CustomEvent('dashboard-update'));
+        window.dispatchEvent(new CustomEvent('transactions-update'));
+        
+        // Reset form
         setFormData({
           account_id: accounts[0]?.id || '',
           type: 'expense',
@@ -1442,11 +1599,9 @@ function QuickAddFAB({ token }) {
           date: new Date().toISOString().split('T')[0]
         });
         setErrors({});
-
-        window.dispatchEvent(new CustomEvent('dashboard-update'));
-        window.dispatchEvent(new CustomEvent('transactions-update'));
-
-        alert('Transaction added successfully!');
+        
+        // Close dialog last
+        setIsOpen(false);
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -1482,10 +1637,10 @@ function QuickAddFAB({ token }) {
             <Plus size={24} />
           </button>
         </DialogTrigger>
-        <DialogContent aria-describedby="transaction-dialog-description">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Quick Add Transaction</DialogTitle>
-            <DialogDescription id="transaction-dialog-description">
+            <DialogDescription>
               Add a new income or expense transaction to your account.
             </DialogDescription>
           </DialogHeader>

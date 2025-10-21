@@ -65,6 +65,31 @@ function rrEmitNetworkEvent(eventData) {
 }
 
 // ---------------------------
+// Retry mechanism
+// ---------------------------
+const withRetry = async (fn, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+};
+
+// ---------------------------
+// Debounce utility
+// ---------------------------
+const debounce = (fn, delay) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+};
+
+// ---------------------------
 // Axios instance
 // ---------------------------
 const api = axios.create({
@@ -72,13 +97,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  // Add timeout
-  timeout: 15000,
-  // Add retry logic
-  retry: 3,
-  retryDelay: (retryCount) => {
-    return retryCount * 1000; // time interval between retries
-  }
+  timeout: 15000
 });
 
 // Add JWT token automatically if available
@@ -199,18 +218,20 @@ export const auth = {
 // Accounts APIs
 // ---------------------------
 export const accounts = {
-  getAll: async () => (await api.get('/api/accounts')).data,
-  create: async (accountData) => (await api.post('/api/accounts', accountData)).data,
-  delete: async (accountId) => (await api.delete(`/api/accounts/${accountId}`)).data,
+  getAll: async () => withRetry(async () => (await api.get('/api/accounts')).data),
+  create: async (accountData) => withRetry(async () => (await api.post('/api/accounts', accountData)).data),
+  delete: async (accountId) => withRetry(async () => (await api.delete(`/api/accounts/${accountId}`)).data),
+  update: async (accountId, data) => withRetry(async () => (await api.put(`/api/accounts/${accountId}`, data)).data),
 };
 
 // ---------------------------
 // Transactions APIs
 // ---------------------------
 export const transactions = {
-  getAll: async () => (await api.get('/api/transactions')).data,
-  create: async (transactionData) => (await api.post('/api/transactions', transactionData)).data,
-  delete: async (transactionId) => (await api.delete(`/api/transactions/${transactionId}`)).data,
+  getAll: async () => withRetry(async () => (await api.get('/api/transactions')).data),
+  create: async (transactionData) => withRetry(async () => (await api.post('/api/transactions', transactionData)).data),
+  delete: async (transactionId) => withRetry(async () => (await api.delete(`/api/transactions/${transactionId}`)).data),
+  update: async (transactionId, data) => withRetry(async () => (await api.put(`/api/transactions/${transactionId}`, data)).data),
 };
 
 // ---------------------------
