@@ -180,10 +180,42 @@ async def delete_account(account_id: str, current_user: dict = Depends(get_curre
 # ---------------- Transactions ----------------
 @api_router.post("/transactions", response_model=Transaction)
 async def create_transaction(transaction: TransactionBase, current_user: dict = Depends(get_current_user)):
-    data = transaction.dict()
-    data.update({"id": str(uuid.uuid4()), "user_id": current_user["user_id"], "created_at": datetime.now(timezone.utc).isoformat()})
-    supabase.table("transactions").insert(data).execute()
-    return data
+    try:
+        # Verify account exists and belongs to user
+        account_result = supabase.table("accounts").select("*").eq("id", transaction.account_id).eq("user_id", current_user["user_id"]).execute()
+        if not account_result.data:
+            raise HTTPException(status_code=404, detail="Account not found or does not belong to user")
+            
+        account = account_result.data[0]
+        
+        # Validate amount is positive
+        if transaction.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+            
+        # Calculate new balance
+        new_balance = account["balance"]
+        if transaction.type == "income":
+            new_balance += transaction.amount
+        else:  # expense
+            if new_balance < transaction.amount:
+                raise HTTPException(status_code=400, detail="Insufficient balance in account")
+            new_balance -= transaction.amount
+            
+        # Create transaction
+        data = transaction.dict()
+        data.update({
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["user_id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Update account balance and create transaction in a transaction
+        supabase.table("accounts").update({"balance": new_balance}).eq("id", account["id"]).execute()
+        result = supabase.table("transactions").insert(data).execute()
+        
+        return result.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/transactions", response_model=List[Transaction])
 async def get_transactions(current_user: dict = Depends(get_current_user)):

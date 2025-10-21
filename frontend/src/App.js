@@ -759,14 +759,30 @@ function Transactions({ token }) {
         axios.get(`${API_URL}/api/transactions`, { headers }),
         axios.get(`${API_URL}/api/accounts`, { headers }),
       ]);
-      setTransactions(txnRes.data);
+      // Sort transactions by date in descending order (newest first)
+      const sortedTransactions = txnRes.data.sort((a, b) => 
+        new Date(b.date) - new Date(a.date)
+      );
+      setTransactions(sortedTransactions);
       setAccounts(accRes.data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      alert('Error loading transactions. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
   };
+
+  // Add listener for transaction updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener('transactions-update', handleUpdate);
+    return () => {
+      window.removeEventListener('transactions-update', handleUpdate);
+    };
+  }, []);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this transaction?')) return;
@@ -860,7 +876,21 @@ function Accounts({ token }) {
   const handleAddAccount = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/api/accounts`, formData, {
+      // Validate form data
+      if (!formData.name.trim()) {
+        alert('Please enter an account name');
+        return;
+      }
+      if (formData.balance < 0) {
+        alert('Initial balance cannot be negative');
+        return;
+      }
+      
+      await axios.post(`${API_URL}/api/accounts`, {
+        ...formData,
+        name: formData.name.trim(),
+        balance: parseFloat(formData.balance)
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsAddDialogOpen(false);
@@ -1212,6 +1242,7 @@ function SettingsPage({ user, onThemeToggle, theme }) {
 function QuickAddFAB({ token }) {
   const [isOpen, setIsOpen] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     account_id: '',
     type: 'expense',
@@ -1243,48 +1274,67 @@ function QuickAddFAB({ token }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     try {
-      // Validate form data
+      // Enhanced form validation
       if (!formData.account_id) {
         alert('Please select an account');
         return;
       }
-      if (!formData.amount || formData.amount <= 0) {
-        alert('Please enter a valid amount');
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        alert('Please enter a valid amount greater than 0');
+        return;
+      }
+      if (!formData.description.trim()) {
+        alert('Please enter a description');
+        return;
+      }
+      if (!formData.category) {
+        alert('Please select a category');
+        return;
+      }
+      if (!formData.date) {
+        alert('Please select a date');
         return;
       }
 
-      await axios.post(`${API_URL}/api/transactions`, {
+      setLoading(true);
+      const response = await axios.post(`${API_URL}/api/transactions`, {
         ...formData,
+        description: formData.description.trim(),
         amount: parseFloat(formData.amount)
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Reset form
-      setIsOpen(false);
-      setFormData({
-        account_id: accounts[0]?.id || '',
-        type: 'expense',
-        amount: '',
-        category: 'food',
-        description: '',
-        date: new Date().toISOString().split('T')[0]
-      });
+      if (response.data) {
+        // Reset form
+        setIsOpen(false);
+        setFormData({
+          account_id: accounts[0]?.id || '',
+          type: 'expense',
+          amount: '',
+          category: 'food',
+          description: '',
+          date: new Date().toISOString().split('T')[0]
+        });
 
-      // Show success message
-      alert('Transaction added successfully!');
+        // Show success message
+        alert('Transaction added successfully!');
 
-      // Refresh the current page component instead of full page reload
-      const currentPath = window.location.pathname;
-      if (currentPath === '/dashboard') {
+        // Refresh components that show transaction data
         window.dispatchEvent(new CustomEvent('dashboard-update'));
-      } else if (currentPath === '/transactions') {
         window.dispatchEvent(new CustomEvent('transactions-update'));
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
-      alert('Error adding transaction: ' + (error.response?.data?.detail || 'Please try again'));
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          'Failed to add transaction. Please try again.';
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1374,7 +1424,9 @@ function QuickAddFAB({ token }) {
                 data-testid="quick-add-date"
               />
             </div>
-            <Button type="submit" className="w-full" data-testid="quick-add-submit">Add Transaction</Button>
+            <Button type="submit" className="w-full" data-testid="quick-add-submit" disabled={loading}>
+              {loading ? 'Adding...' : 'Add Transaction'}
+            </Button>
           </form>
         </DialogContent>
       </Dialog>

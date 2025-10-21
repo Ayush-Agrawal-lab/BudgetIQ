@@ -181,8 +181,24 @@ async def update_account(account_id: str, account: AccountUpdate, current_user: 
 
 @api_router.delete("/accounts/{account_id}")
 async def delete_account(account_id: str, current_user: TokenData = Depends(get_current_user)):
-    supabase.supabase.table("accounts").delete().eq("id", account_id).eq("user_id", current_user.user_id).execute()
-    return {"detail": "Account deleted"}
+    try:
+        # First check if account exists and belongs to user
+        account_result = supabase.supabase.table("accounts").select("*").eq("id", account_id).eq("user_id", current_user.user_id).execute()
+        if not account_result.data:
+            raise HTTPException(status_code=404, detail="Account not found or does not belong to user")
+
+        # Check if there are any active transactions for this account
+        transactions = supabase.supabase.table("transactions").select("*").eq("account_id", account_id).execute()
+        if transactions.data:
+            raise HTTPException(status_code=400, detail="Cannot delete account with existing transactions. Please delete transactions first.")
+
+        # If all checks pass, delete the account
+        supabase.supabase.table("accounts").delete().eq("id", account_id).eq("user_id", current_user.user_id).execute()
+        return {"detail": "Account deleted successfully"}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------- TRANSACTIONS ----------------
 @api_router.post("/transactions", response_model=Transaction)
