@@ -1,20 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import api, { debounce, API_URL } from './services/api';
 import { HashRouter as Router, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './App.css';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
-// UI Components
-const Button = ({ children, variant = 'default', size = 'default', className = '', onClick, disabled, type = 'button', ...props }) => (
-  <button 
-    className={`btn ${variant} ${size} ${className}`} 
-    onClick={onClick} 
-    disabled={disabled} 
-    type={type} 
-    {...props}
-  >
-    {children}
-  </button>
-);
+// UI Components (uses shared Button from components/ui/button)
 
 const Card = ({ children, className = '', ...props }) => (
   <div className={`card ${className}`} {...props}>{children}</div>
@@ -36,16 +28,61 @@ const Label = ({ children, htmlFor, className = '' }) => (
   <label htmlFor={htmlFor} className={`label ${className}`}>{children}</label>
 );
 
-const Select = ({ value, onValueChange, children, ...props }) => (
-  <select value={value} onChange={(e) => onValueChange(e.target.value)} className="select" {...props}>
-    {children}
-  </select>
-);
+const SelectContext = React.createContext({});
 
-const SelectTrigger = ({ children, ...props }) => <div className="select-trigger" {...props}>{children}</div>;
-const SelectValue = ({ placeholder }) => <span className="select-value">{placeholder}</span>;
-const SelectContent = ({ children }) => <div className="select-content">{children}</div>;
-const SelectItem = ({ value, children }) => <option value={value} className="select-item">{children}</option>;
+const Select = ({ value, onValueChange, children, className = '', ...props }) => {
+  const [open, setOpen] = useState(false);
+  const ctx = { value, onValueChange, open, setOpen };
+
+  return (
+    <SelectContext.Provider value={ctx}>
+      <div className={`select ${className}`} {...props}>
+        {children}
+      </div>
+    </SelectContext.Provider>
+  );
+};
+
+const SelectTrigger = ({ children, className = '', ...props }) => {
+  const { open, setOpen } = React.useContext(SelectContext);
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(!open)}
+      className={`select-trigger ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+const SelectValue = ({ placeholder }) => {
+  const { value } = React.useContext(SelectContext);
+  return <span className="select-value">{value || placeholder}</span>;
+};
+
+const SelectContent = ({ children, className = '' }) => {
+  const { open } = React.useContext(SelectContext);
+  if (!open) return null;
+  return <div className={`select-content ${className}`}>{children}</div>;
+};
+
+const SelectItem = ({ value, children }) => {
+  const { onValueChange, setOpen } = React.useContext(SelectContext);
+  return (
+    <button
+      type="button"
+      className="select-item"
+      onClick={() => {
+        onValueChange?.(value);
+        setOpen(false);
+      }}
+    >
+      {children}
+    </button>
+  );
+};
 
 const Tabs = ({ value, onValueChange, children }) => (
   <div className="tabs">
@@ -70,51 +107,7 @@ const TabsContent = ({ value, children }) => (
   <div className="tab-content" data-state={value}>{children}</div>
 );
 
-const Dialog = ({ open, onOpenChange, children, modal }) => {
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [open]);
-
-  if (!open) return null;
-  
-  return (
-    <div className="dialog-overlay" onClick={() => onOpenChange(false)}>
-      <div className="dialog-content" onClick={e => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  );
-};
-
-const DialogTrigger = ({ asChild, children, ...props }) => 
-  React.cloneElement(children, props);
-
-const DialogContent = ({ children, description = "Dialog content", ...props }) => (
-  <div 
-    className="dialog-inner-content" 
-    role="dialog"
-    aria-modal="true"
-    aria-describedby="dialog-description"
-    {...props}
-  >
-    <div id="dialog-description" className="sr-only">{description}</div>
-    {children}
-  </div>
-);
-
-const DialogHeader = ({ children }) => <div className="dialog-header">{children}</div>;
-const DialogTitle = ({ children }) => <h3 className="dialog-title">{children}</h3>;
-const DialogDescription = ({ children, id }) => (
-  <p className="dialog-description" id={id}>{children}</p>
-);
+// Using Radix-based dialog components from '@/components/ui/dialog'
 
 // Icons
 const Sun = (props) => <span {...props}>☀️</span>;
@@ -137,7 +130,7 @@ const ArrowUpRight = (props) => <span {...props}>↗️</span>;
 const ArrowDownRight = (props) => <span {...props}>↘️</span>;
 const Home = (props) => <span {...props}>🏠</span>;
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+// API_URL is imported from services/api (environment-aware)
 
 // Configure axios defaults and interceptors
 axios.defaults.baseURL = API_URL;
@@ -1335,10 +1328,10 @@ function Insights({ token }) {
                 Add Goal
               </Button>
             </DialogTrigger>
-            <DialogContent aria-describedby="goal-dialog-description">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create Financial Goal</DialogTitle>
-                <DialogDescription id="goal-dialog-description">
+                <DialogDescription>
                   Set up a new financial goal to track your savings progress.
                 </DialogDescription>
               </DialogHeader>

@@ -2,8 +2,14 @@ import axios from 'axios';
 
 // ---------------------------
 // Environment-based API URL
+// - If REACT_APP_ENV=development prefer a relative base ('') so the dev server proxy can handle /api calls and avoid CORS.
+// - For other environments, use REACT_APP_BACKEND_URL if set, otherwise default to the deployed backend.
 // ---------------------------
-const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+const API_URL = process.env.REACT_APP_ENV === 'development'
+  ? ''
+  : (process.env.REACT_APP_BACKEND_URL || 'https://budgetiq-backend.onrender.com');
+
+export { API_URL };
 
 // ---------------------------
 // rrweb network logging helper
@@ -81,7 +87,7 @@ const withRetry = async (fn, retries = 3) => {
 // ---------------------------
 // Debounce utility
 // ---------------------------
-const debounce = (fn, delay) => {
+export const debounce = (fn, delay) => {
   let timeoutId;
   return (...args) => {
     clearTimeout(timeoutId);
