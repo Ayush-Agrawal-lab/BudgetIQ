@@ -71,7 +71,20 @@ const TabsContent = ({ value, children }) => (
 );
 
 const Dialog = ({ open, onOpenChange, children, modal }) => {
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [open]);
+
   if (!open) return null;
+  
   return (
     <div className="dialog-overlay" onClick={() => onOpenChange(false)}>
       <div className="dialog-content" onClick={e => e.stopPropagation()}>
@@ -81,11 +94,20 @@ const Dialog = ({ open, onOpenChange, children, modal }) => {
   );
 };
 
-const DialogTrigger = ({ asChild, children }) => children;
-const DialogContent = ({ children }) => <div className="dialog-inner-content">{children}</div>;
+const DialogTrigger = ({ asChild, children, ...props }) => 
+  React.cloneElement(children, props);
+
+const DialogContent = ({ children, ...props }) => (
+  <div className="dialog-inner-content" {...props}>
+    {children}
+  </div>
+);
+
 const DialogHeader = ({ children }) => <div className="dialog-header">{children}</div>;
 const DialogTitle = ({ children }) => <h3 className="dialog-title">{children}</h3>;
-const DialogDescription = ({ children }) => <p className="dialog-description">{children}</p>;
+const DialogDescription = ({ children, id }) => (
+  <p className="dialog-description" id={id}>{children}</p>
+);
 
 // Icons
 const Sun = (props) => <span {...props}>☀️</span>;
@@ -980,11 +1002,13 @@ function Accounts({ token }) {
               Add Account
             </Button>
           </DialogTrigger>
-          <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Account</DialogTitle>
-                <DialogDescription>Add a new financial account to track your balance.</DialogDescription>
-              </DialogHeader>
+          <DialogContent aria-describedby="account-dialog-description">
+            <DialogHeader>
+              <DialogTitle>Add New Account</DialogTitle>
+              <DialogDescription id="account-dialog-description">
+                Add a new financial account to track your balance.
+              </DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleAddAccount} className="dialog-form">
               <div className="form-group">
                 <Label>Account Name</Label>
@@ -1176,10 +1200,12 @@ function Insights({ token }) {
                 Add Goal
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent aria-describedby="goal-dialog-description">
               <DialogHeader>
                 <DialogTitle>Create Financial Goal</DialogTitle>
-                <DialogDescription>Set up a new financial goal to track your savings progress.</DialogDescription>
+                <DialogDescription id="goal-dialog-description">
+                  Set up a new financial goal to track your savings progress.
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleAddGoal} className="dialog-form">
                 <div className="form-group">
@@ -1456,10 +1482,12 @@ function QuickAddFAB({ token }) {
             <Plus size={24} />
           </button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent aria-describedby="transaction-dialog-description">
           <DialogHeader>
             <DialogTitle>Quick Add Transaction</DialogTitle>
-            <DialogDescription>Add a new income or expense transaction to your account.</DialogDescription>
+            <DialogDescription id="transaction-dialog-description">
+              Add a new income or expense transaction to your account.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="dialog-form">
             {errors.fetch && (
