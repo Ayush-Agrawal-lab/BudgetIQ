@@ -24,26 +24,63 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => {
-  // Find DialogDescription among children to set up accessibility attributes
-  let hasDescription = false;
-  React.Children.forEach(children, child => {
-    if (child?.type?.displayName === DialogDescription.displayName) {
-      hasDescription = true;
-    }
-  });
-
-  // Generate a unique ID for aria-describedby if needed
+  // Generate a unique ID for aria-describedby fallback
   const [descriptionId] = React.useState(() => `dialog-description-${Math.random().toString(36).substring(2, 9)}`);
 
-  // If no explicit Description is provided, we'll add a hidden one
-  const contentWithFallbackDescription = !hasDescription ? (
+  // Recursively walk children to find any DialogDescription and ensure it has an id.
+  // Returns { found: boolean, id?: string, nodes: ReactNode }
+  const findAndEnsureDescription = (nodes) => {
+    let found = false;
+    let foundId = undefined;
+
+    const walker = (child) => {
+      if (!React.isValidElement(child)) return child;
+
+      // If this element is a DialogPrimitive.Description (or our DialogDescription), ensure it has an id
+      const typeDisplayName = child.type?.displayName;
+      const isDescription =
+        child.type === DialogPrimitive.Description ||
+        typeDisplayName === DialogPrimitive.Description.displayName ||
+        typeDisplayName === DialogDescription.displayName;
+
+      if (isDescription) {
+        found = true;
+        // use existing id or assign one
+        const id = child.props.id ?? descriptionId;
+        foundId = id;
+        // clone element with id if missing
+        if (!child.props.id) return React.cloneElement(child, { id });
+        return child;
+      }
+
+      // If element has children, recurse into them
+      if (child.props && child.props.children) {
+        const newChildren = React.Children.map(child.props.children, walker);
+        // If children changed, clone parent with new children
+        if (newChildren !== child.props.children) {
+          return React.cloneElement(child, undefined, newChildren);
+        }
+      }
+
+      return child;
+    };
+
+    const processed = React.Children.map(nodes, walker);
+    return { found, id: foundId, nodes: processed };
+  };
+
+  const { found: hasDescription, id: existingDescriptionId, nodes: processedChildren } = findAndEnsureDescription(children);
+
+  const contentChildren = hasDescription ? processedChildren : (
     <>
-      {children}
+      {processedChildren}
       <DialogDescription id={descriptionId} className="sr-only">
         Dialog content
       </DialogDescription>
     </>
-  ) : children;
+  );
+
+  const ariaDescribedBy = hasDescription ? (existingDescriptionId ?? undefined) : descriptionId;
 
   return (
     <DialogPortal>
@@ -54,10 +91,10 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
           className
         )}
-        aria-describedby={!hasDescription ? descriptionId : undefined}
+        aria-describedby={ariaDescribedBy}
         {...props}
       >
-        {contentWithFallbackDescription}
+        {contentChildren}
         <DialogPrimitive.Close
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-4 w-4" />
