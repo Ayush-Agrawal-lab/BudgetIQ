@@ -952,6 +952,15 @@ function Accounts({ token }) {
         setFormData(recovery.data);
       }
       setRecovery({ data: null, timestamp: null });
+    } else if (!isAddDialogOpen) {
+      if (formData.name || formData.balance) {
+        setRecovery({
+          data: formData,
+          timestamp: Date.now()
+        });
+      }
+      setFormData({ name: '', type: 'bank', balance: 0 });
+      setErrors({});
     }
   }, [isAddDialogOpen]);
 
@@ -1086,22 +1095,14 @@ function Accounts({ token }) {
         </div>
         <Dialog 
           open={isAddDialogOpen} 
-          onOpenChange={(open) => {
-            if (!open && formData.name || formData.balance) {
-              setRecovery({
-                data: formData,
-                timestamp: Date.now()
-              });
-            }
-            setIsAddDialogOpen(open);
-            if (!open) {
-              setFormData({ name: '', type: 'bank', balance: 0 });
-              setErrors({});
-            }
-          }}
+          onOpenChange={setIsAddDialogOpen}
         >
           <DialogTrigger asChild>
-            <Button className="add-account-button" data-testid="add-account-btn">
+            <Button 
+              className="add-account-button" 
+              data-testid="add-account-btn"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
               <Plus size={20} />
               Add Account
             </Button>
@@ -1488,6 +1489,16 @@ function QuickAddFAB({ token }) {
   useEffect(() => {
     if (isOpen) {
       fetchAccounts();
+    } else {
+      setFormData({
+        account_id: '',
+        type: 'expense',
+        amount: '',
+        category: 'food',
+        description: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      setErrors({});
     }
   }, [isOpen, token]);
 
@@ -1634,14 +1645,14 @@ function QuickAddFAB({ token }) {
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => {
-        setIsOpen(open);
-        if (!open) {
-          setErrors({});
-        }
-      }}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <button className="quick-add-fab" data-testid="quick-add-fab">
+          <button 
+            type="button"
+            className="quick-add-fab" 
+            data-testid="quick-add-fab"
+            onClick={() => setIsOpen(true)}
+          >
             <Plus size={24} />
           </button>
         </DialogTrigger>
