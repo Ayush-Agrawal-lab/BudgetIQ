@@ -277,7 +277,12 @@ function LandingPage({ onThemeToggle, theme }) {
             <span>BudgetIQ</span>
           </div>
           <div className="nav-actions">
-            <Button variant="ghost" onClick={onThemeToggle} className="theme-toggle">
+            <Button 
+              variant="ghost" 
+              onClick={onThemeToggle} 
+              className="theme-toggle"
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </Button>
             <Button onClick={() => navigate('/auth')} className="nav-login-btn">Login</Button>
@@ -520,7 +525,12 @@ function DashboardLayout({ children, token, user, onLogout, onThemeToggle, theme
             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <div className="navbar-actions">
-            <Button variant="ghost" onClick={onThemeToggle} className="theme-toggle">
+            <Button 
+              variant="ghost" 
+              onClick={onThemeToggle} 
+              className="theme-toggle"
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
             </Button>
             <div className="user-avatar" data-testid="user-avatar">
@@ -1444,7 +1454,12 @@ function SettingsPage({ user, onThemeToggle, theme }) {
               <Label>Theme</Label>
               <p className="setting-description">Switch between light and dark mode</p>
             </div>
-            <Button onClick={onThemeToggle} variant="outline" data-testid="theme-toggle-btn">
+            <Button 
+              onClick={onThemeToggle} 
+              variant="outline" 
+              data-testid="theme-toggle-btn"
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
               {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
               {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
             </Button>
