@@ -1102,15 +1102,17 @@ function Accounts({ token }) {
               className="add-account-button" 
               data-testid="add-account-btn"
               onClick={() => setIsAddDialogOpen(true)}
+              aria-label="Add new account"
+              title="Add new account"
             >
               <Plus size={20} />
               Add Account
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent aria-describedby="account-dialog-description">
             <DialogHeader>
               <DialogTitle>Add New Account</DialogTitle>
-              <DialogDescription>
+              <DialogDescription id="account-dialog-description">
                 Add a new financial account to track your balance.
               </DialogDescription>
             </DialogHeader>
@@ -1652,14 +1654,17 @@ function QuickAddFAB({ token }) {
             className="quick-add-fab" 
             data-testid="quick-add-fab"
             onClick={() => setIsOpen(true)}
+            aria-label="Add new transaction"
+            title="Add new transaction"
           >
             <Plus size={24} />
+            <span className="sr-only">Add new transaction</span>
           </button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent aria-describedby="dialog-description">
           <DialogHeader>
             <DialogTitle>Quick Add Transaction</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="dialog-description">
               Add a new income or expense transaction to your account.
             </DialogDescription>
           </DialogHeader>
